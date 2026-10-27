@@ -26,7 +26,7 @@ Environment variables: `CSS_DB` (path to the database, default `css.db` next to 
 
 ## Production deployment (pinto)
 
-Deployed 2026-10-27. Runs on Brad's Raspberry Pi `pinto` (`bcransto@pinto` over Tailscale; the first SSH from a new session may ask for a browser check), same pattern as Blue Book and grocery-shopper: a systemd service on a localhost port, HTTPS terminated by the existing Cloudflare Tunnel, no reverse proxy on the Pi, code pulled from GitHub.
+Live at **<https://css-tiers.938752.xyz>** since 2026-10-27. Runs on Brad's Raspberry Pi `pinto` (`bcransto@pinto` over Tailscale; the first SSH from a new session may ask for a browser check), same pattern as Blue Book and grocery-shopper: a systemd service on a localhost port, HTTPS terminated by the existing Cloudflare Tunnel, no reverse proxy on the Pi, code pulled from GitHub.
 
 - **Code.** GitHub `bcransto/css-implementation` (private). From the Mac, push over HTTPS; SSH pushes often fail here because of the 1Password agent, so `origin` is the HTTPS URL with `gh` as the credential helper. The Pi pulls with a read-only deploy key through the alias `github-css-implementation` in its `~/.ssh/config`, so its remote is `github-css-implementation:bcransto/css-implementation.git`. Don't "fix" that URL.
 
@@ -34,7 +34,7 @@ Deployed 2026-10-27. Runs on Brad's Raspberry Pi `pinto` (`bcransto@pinto` over 
 - **Secrets.** `/home/bcransto/css-implementation/.env`, chmod 600, gitignored, loaded by the unit. Template: `.env.example`.
 - **Database.** `/home/bcransto/css-implementation/css.db`, built once with `build_db.py` and then edited only through the form. Never rerun `build_db.py` there; it replaces the file.
 - **Backups.** [deploy/backup.sh](deploy/backup.sh) from the `bcransto` crontab at 1:50 AM, keeps 3 snapshots in `~/backups/`; ranchero rsyncs the home directory at 2:00 AM. Don't move the job past 2:00.
-- **Ingress.** The tunnel is dashboard-managed (cloudflared runs with a token; no config file on the Pi). Add the public hostname under the tunnel's public hostnames in Cloudflare Zero Trust, service `http://localhost:4004`. Until then the site is only reachable on the Pi itself.
+- **Ingress.** The Cloudflare Tunnel `pinto-apps-tunnel` is dashboard-managed (cloudflared runs with a token; no config file on the Pi). Its route `css-tiers.938752.xyz` is a Published application pointing at `http://localhost:4004` (plain http: gunicorn has no TLS). Changes are made in Cloudflare One → Networks → Tunnels → Add route.
 - **The committee password** is only in the Pi's `.env`: `ssh bcransto@pinto 'grep CSS_PASSWORD ~/css-implementation/.env'`. Change it there and `sudo systemctl restart css-tiers`.
 
 ```bash
