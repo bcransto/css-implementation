@@ -1,5 +1,5 @@
 -- Seed for schema.sql (v0.3). Four areas built so far; rows tagged 'proposed' are ours, 'doc' are in district documents.
--- Rows with teacher <> '-' are observed practice (basis='observed'); the one here is a placeholder until the survey runs.
+-- Rows with teacher <> '-' are observed practice (basis='observed') from the teacher survey.
 -- K = grade 0.
 PRAGMA foreign_keys = ON;
 
@@ -115,11 +115,13 @@ INSERT INTO protocol(id,area_id,tier,profile_id,deliverer_role,placement_tool_id
 ('e6-t2-flu','ela-6',2,'e6-flu','trained para','read-nat','read-nat','tmsfa','wcpm','flat second stage, accuracy >=95%, wcpm low','3 x 45 FLEX','3-5','12-15','one-minute read biweekly; aimline to 25th pct; 4 below -> change','wk 6; wk 12','wcpm>=25th pct and slope>=aimline, two reviews','to-t1','cst','proposed','dosage and program are doc','pg2009r Rec 3; vf2012 p.5'),
 ('e6-com','ela-6',NULL,'e6-com','SLP','celf5-s',NULL,'star-r','PR at window','accuracy and rate fine; not a Tier 2 reading entry','n/a',NULL,NULL,'re-screen at next window from Tier 1','next window',NULL,'slp','sped-eval','proposed','no Tier 2 protocol exists for this profile','vf2012 p.5; hock');
 
--- Observed practice (what a teacher does now). Illustrative placeholder until the survey is run; replace with real rows.
+-- Observed practice (what a teacher does now). Survey rows; basis='observed', teacher = the teacher.
+-- Anne (math 6), interviewed 2026-10: screens and probes with ALEKS against DESE grade 6 standards; does not use STAR Math.
 INSERT INTO profile(id,area_id,teacher,basis,name,sort_rule) VALUES
 ('m6-anne-facts','math-6','Anne','observed','can''t do facts','teacher judgment from class work');
 INSERT INTO protocol(id,area_id,tier,profile_id,teacher,basis,as_of,evidence,deliverer_role,program_id,pm_tool_id,pm_metric,entry_rule,dosage,group_size,weeks,pm_rule,review_rule,exit_rule,next_step_id,nonresponse_id,status,status_note) VALUES
-('m6-anne-t2','math-6',2,'m6-anne-facts','Anne','observed','2026-10','PLACEHOLDER - not yet interviewed','classroom teacher','aleks',NULL,NULL,'MCAS band + teacher judgment','3 x 45 FLEX','varies','open-ended','teacher PM sheet; no shared measure','none','none',NULL,'cst','unwritten','placeholder row to show the shape; delete after the survey');
+('m6-anne-t1','math-6',1,'-','Anne','observed','2026-10','interview','classroom teacher','cpm','aleks','DESE grade 6 standards mastered','ALEKS knowledge check against DESE grade 6 standards, her own screener; does not use STAR Math','daily block','class','year','ALEKS as the ongoing probe, by DESE grade 6 standard; no STAR Math',NULL,NULL,NULL,NULL,'unwritten','ALEKS is both screener and probe; nothing written down'),
+('m6-anne-t2','math-6',2,'m6-anne-facts','Anne','observed','2026-10','interview','classroom teacher','aleks','aleks','DESE grade 6 standards mastered','ALEKS knowledge check (DESE grade 6 standards) + teacher judgment; not STAR Math','3 x 45 FLEX','varies','open-ended','ALEKS progress by DESE grade 6 standard; no shared measure with other teachers','none','none',NULL,'cst','unwritten','ALEKS is both screener and probe; nothing written down');
 
 INSERT INTO student_example VALUES
 ('ex-k4-j','J','k4-t2-fact','Grade 4. Sep 8 STAR SS 592 PR 18, MCAS gr3 Partially. Second stage 592/598/601 (+1.5/wk). Oct 24 probe: 11 digits/2 min; Bridges Vol 4 Module 2. Oct 27-Feb 13 Bridges 3x30 group of 3. STAR 605,618,622,637,649,658,667,671 vs line +4.4/wk. Dec 8 on track; Jan 26 PR 41 (cycle 1); Feb 13 PR 42 exit. Mar 678, Apr 684.'),

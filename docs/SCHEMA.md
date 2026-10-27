@@ -17,7 +17,7 @@ Before the committee can define a rule it needs to see what each teacher does no
 - `teacher` — `'-'` means the area's rule. A name means what that teacher does.
 - `basis` — `defined` is the area's decided rule; `observed` is a description of a teacher's current practice. Observed rows also carry `as_of` (YYYY-MM) and `evidence` (`interview`, `PM sheet`, `self-report`).
 
-An observed profile is a teacher's own sorting category ("can't do facts"), and its `sort_rule` is how that teacher decides. A trigger refuses a protocol whose `teacher` differs from its profile's `teacher` (the `'-'` profile is allowed for anyone). The page shows observed rows under the defined ones, so variance between teachers is visible next to the rule it will be replaced by. Observed rows are survey data; delete the placeholder in the seed once the survey is run.
+An observed profile is a teacher's own sorting category ("can't do facts"), and its `sort_rule` is how that teacher decides. A trigger refuses a protocol whose `teacher` differs from its profile's `teacher` (the `'-'` profile is allowed for anyone). The page shows observed rows under the defined ones, so variance between teachers is visible next to the rule it will be replaced by. Observed rows are survey data; they are edited live on pinto and mirrored into the seed.
 
 ## Tables
 
@@ -88,4 +88,4 @@ v0.3 added teacher scoping (`teacher`, `basis`, `as_of`, `evidence` on `protocol
 
 ## Seed
 
-`db/seed.sql` loads four areas (K–4 math, 3–5 reading, math 6, ELA 6), 20 tools, 8 sources, 13 defined profiles, 17 defined protocols, 4 fake students, plus one placeholder observed profile and protocol for a teacher (to be replaced by survey rows). Everything tagged `proposed` is a design proposal from the research pass, not district policy.
+`db/seed.sql` loads four areas (K–4 math, 3–5 reading, math 6, ELA 6), 20 tools, 8 sources, 13 defined profiles, 17 defined protocols, 4 fake students, plus the observed rows from the teacher survey (one profile and two protocols for a math 6 teacher so far). Everything tagged `proposed` is a design proposal from the research pass, not district policy.
