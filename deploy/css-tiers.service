@@ -1,0 +1,23 @@
+# Mirror of /etc/systemd/system/css-tiers.service on the Pi (pinto).
+# Install: sudo cp deploy/css-tiers.service /etc/systemd/system/ && \
+#          sudo systemctl daemon-reload && sudo systemctl enable --now css-tiers
+
+[Unit]
+Description=CSS tier definitions (Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=bcransto
+WorkingDirectory=/home/bcransto/css-implementation
+# CSS_PASSWORD and CSS_SECRET live here, chmod 600, gitignored.
+EnvironmentFile=/home/bcransto/css-implementation/.env
+# 3030 is Blue Book, 4000-4003 are Curriculum Map, gdocs-mcp and grocery-deals.
+ExecStart=/home/bcransto/css-implementation/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:4004 --access-logfile - app:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

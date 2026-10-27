@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Sign in · CSS tiers{% endblock %}
+{% block body %}
+<h1>Sign in to edit</h1>
+<form method="post" class="login">
+  <input type="hidden" name="next" value="{{ next }}">
+  <label>Committee password <input type="password" name="password" autofocus autocomplete="current-password"></label>
+  <button type="submit">Sign in</button>
+</form>
+{% endblock %}

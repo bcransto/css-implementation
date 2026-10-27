@@ -1,0 +1,6 @@
+.venv/
+css.db
+__pycache__/
+*.pyc
+.secret
+.env

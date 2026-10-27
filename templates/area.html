@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ area.subject }} {{ area.grade_lo|grade_span(area.grade_hi) }} · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}" {% if a.id == area.id %}class="here"{% endif %}>{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>{{ area.subject|capitalize }}, grade{% if area.grade_lo != area.grade_hi %}s{% endif %} {{ area.grade_lo|grade_span(area.grade_hi) }}
+  <small>{{ area.building or '' }}{% if area.has_flex %} · FLEX block{% endif %}</small>
+  {% if logged_in() %}<a class="btn" href="{{ url_for('protocol_new', area_id=area.id) }}">+ Add row</a>{% endif %}</h1>
+
+<section class="setup">
+  <div>
+    <h3>Core</h3>
+    {% if cores %}<ul>{% for c in cores %}<li>{{ c.name }}{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">No core program named in any district document.</p>{% endif %}
+  </div>
+  <div>
+    <h3>Screening</h3>
+    <table class="mini">
+      <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag</th><th></th></tr></thead>
+      <tbody>{% for s in screeners %}
+      <tr><td>{{ s.name }}</td><td>{{ s.grade_lo|grade_span(s.grade_hi) }}</td><td>{{ s.windows or '' }}</td>
+          <td>{{ s.role.replace('_', ' ') }}</td><td>{{ s.cut or '' }}</td><td><span class="tag {{ s.status }}">{{ s.status }}</span></td></tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+
+{% for teacher, tiers in by_teacher.items() %}
+  {% if teacher != '-' %}
+    <h2 class="observed-head">Observed: {{ teacher }}
+      <small>what this teacher does now, not the area's rule</small></h2>
+  {% endif %}
+  {% for tier, cols in tiers.items() %}
+  <h2 class="tier">{{ tier_label(tier) }}{% if teacher != '-' %} <small>({{ teacher }})</small>{% endif %}</h2>
+  <div class="scroll">
+  <table class="grid {% if teacher != '-' %}observed{% endif %}">
+    <thead>
+      <tr>
+        <th class="field"></th>
+        {% for c in cols %}
+        <th class="status-{{ c.status }}">
+          <div class="profile">{{ c.profile }}
+            {% if logged_in() %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=c.id) }}">edit</a>{% endif %}</div>
+          <span class="tag {{ c.status }}">{{ c.status }}</span>
+          {% if c.basis == 'observed' %}<span class="pill">observed{% if c.as_of %} {{ c.as_of }}{% endif %}</span>{% endif %}
+          {% if c.status_note %}<div class="note">{{ c.status_note }}</div>{% endif %}
+          {% if c.evidence %}<div class="note">evidence: {{ c.evidence }}</div>{% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+      <tr class="sort">
+        <th class="field">Sorted by</th>
+        {% for c in cols %}<td class="status-{{ c.status }}">{{ c.sort_rule }}</td>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for col, label in fields %}
+      <tr>
+        <th class="field">{{ label }}</th>
+        {% for c in cols %}{% set v = c.cells[col] %}
+        <td class="status-{{ c.status }}" {% if v.note %}title="{{ v.note }}"{% endif %}>
+          {% if v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endfor %}
+{% endfor %}
+
+{% if examples %}
+<h2>Illustrative students <small>fabricated for the examples; never real students</small></h2>
+<dl class="examples">
+{% for e in examples %}
+  <dt>Student {{ e.student_key }} <span class="muted">· {{ tier_label(e.tier) }}, {{ e.profile }}</span></dt>
+  <dd>{{ e.timeline }}</dd>
+{% endfor %}
+</dl>
+{% endif %}
+{% endblock %}

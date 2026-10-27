@@ -1,0 +1,85 @@
+:root {
+  --bg: #fbfaf7; --fg: #1f1f1f; --muted: #6b6b6b; --line: #d9d5cc; --head: #efece4;
+  --doc: #2f7d4a; --doc-bg: #e6f3ea;
+  --proposed: #9a6b00; --proposed-bg: #fbf1d7;
+  --unwritten: #5c5c5c; --unwritten-bg: #ebebeb;
+  --iep: #2b5fa6; --iep-bg: #e3ecf8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--fg); background: var(--bg); }
+a { color: #1d4f91; text-decoration: none; } a:hover { text-decoration: underline; }
+header.top { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 10px 24px; border-bottom: 1px solid var(--line); background: #fff; }
+header .brand { font-weight: 600; color: var(--fg); }
+header nav a { margin-right: 14px; color: var(--muted); }
+header nav a.here { color: var(--fg); font-weight: 600; border-bottom: 2px solid var(--fg); }
+main { padding: 16px 24px 40px; max-width: 1600px; }
+footer { padding: 12px 24px 24px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
+h1 { font-size: 24px; margin: 8px 0 12px; } h1 small, h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+h2.tier { border-left: 4px solid var(--fg); padding-left: 10px; }
+h2.observed-head { margin-top: 40px; padding: 8px 12px; background: var(--head); border-radius: 6px; }
+h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+p.lede { max-width: 70ch; color: #333; }
+.muted { color: var(--muted); } .empty { color: #bbb; }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); margin-left: 6px; vertical-align: middle; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px; letter-spacing: .02em; }
+.tag.doc { color: var(--doc); background: var(--doc-bg); }
+.tag.proposed { color: var(--proposed); background: var(--proposed-bg); }
+.tag.unwritten { color: var(--unwritten); background: var(--unwritten-bg); }
+.tag.iep { color: var(--iep); background: var(--iep-bg); }
+
+section.setup { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-bottom: 8px; }
+section.setup ul { margin: 0; padding-left: 18px; }
+table { border-collapse: collapse; }
+table.list, table.mini { width: 100%; background: #fff; }
+table.list th, table.list td, table.mini th, table.mini td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+table.list th, table.mini th { background: var(--head); font-size: 13px; }
+table.mini td { font-size: 14px; }
+td.num { text-align: right; }
+
+.scroll { overflow-x: auto; }
+table.grid { background: #fff; border: 1px solid var(--line); min-width: 100%; }
+table.grid th, table.grid td { padding: 7px 10px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); vertical-align: top; text-align: left; min-width: 180px; max-width: 360px; font-size: 14px; }
+table.grid th.field { min-width: 130px; max-width: 150px; background: var(--head); font-size: 13px; color: #444; position: sticky; left: 0; z-index: 1; }
+table.grid thead th { background: var(--head); }
+table.grid .profile { font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+table.grid .note { font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 4px; }
+table.grid tr.sort td { font-size: 13px; color: #444; font-style: italic; background: #f6f4ee; }
+table.grid td.status-doc { background: #f4faf6; }
+table.grid td.status-proposed { background: #fffbf0; }
+table.grid td.status-unwritten { background: #f6f6f6; }
+table.grid td.status-iep { background: #f3f7fc; }
+table.grid.observed { border-style: dashed; }
+table.grid td[title] { cursor: help; text-decoration: underline dotted #bbb; text-underline-offset: 3px; }
+
+dl.examples dt { font-weight: 600; margin-top: 10px; }
+dl.examples dd { margin: 2px 0 0; max-width: 100ch; color: #333; }
+@media (max-width: 800px) { section.setup { grid-template-columns: 1fr; } main { padding: 12px 16px; } }
+
+/* auth, messages, forms */
+header .auth { margin-left: auto; font-size: 13px; }
+header .auth form { display: inline; }
+button.link { background: none; border: none; padding: 0; color: #1d4f91; cursor: pointer; font: inherit; }
+a.btn, button[type=submit]:not(.link) { display: inline-block; font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; padding: 8px 14px; border-radius: 6px; border: 1px solid #1d4f91; background: #1d4f91; color: #fff; cursor: pointer; vertical-align: middle; margin-left: 12px; }
+a.btn:hover { text-decoration: none; background: #163d70; }
+table.grid a.edit { font-weight: 400; font-size: 12px; margin-left: 8px; }
+.flashes { margin-bottom: 12px; }
+.msg { padding: 8px 12px; border-radius: 6px; margin: 6px 0; font-size: 14px; border: 1px solid; }
+.msg.ok { color: var(--doc); background: var(--doc-bg); border-color: #bfdcc8; }
+.msg.warn { color: var(--proposed); background: var(--proposed-bg); border-color: #ecd9a0; }
+.msg.error { color: #a12a2a; background: #fbe7e7; border-color: #efbcbc; }
+.msg ul { margin: 4px 0 0; padding-left: 18px; }
+form.login { max-width: 360px; display: grid; gap: 10px; }
+form.login label { display: grid; gap: 4px; font-size: 13px; color: #444; }
+form.login button { margin-left: 0; justify-self: start; }
+form.edit { max-width: 1100px; }
+form.edit fieldset { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 12px 16px 16px; margin: 0 0 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; }
+form.edit legend { font-weight: 600; padding: 0 6px; }
+form.edit label { display: grid; gap: 4px; font-size: 13px; color: #444; font-weight: 600; }
+form.edit label.wide { grid-column: 1 / -1; }
+form.edit label small { font-weight: 400; color: var(--muted); }
+form.edit input, form.edit select, form.edit textarea { font-family: inherit; font-size: 14px; line-height: 1.4; padding: 6px 8px; border: 1px solid #c9c4b8; border-radius: 5px; background: #fff; color: var(--fg); }
+form.edit textarea { resize: vertical; }
+form.edit .actions { display: flex; gap: 16px; align-items: center; }
+form.edit .actions button { margin-left: 0; }
+@media (max-width: 800px) { form.edit fieldset { grid-template-columns: 1fr; } header .auth { margin-left: 0; } }
