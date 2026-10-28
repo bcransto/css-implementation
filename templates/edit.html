@@ -36,8 +36,8 @@
 
 <fieldset>
   <legend>What the tier does</legend>
-  <label class="wide">Entry rule <textarea name="entry_rule" rows="2">{{ vals.entry_rule or '' }}</textarea>
-    <small>Tier 1: the flag rule. Tier 2+: what the second stage must show</small></label>
+  <label class="wide">Intervention entry rule <textarea name="entry_rule" rows="2">{{ vals.entry_rule or '' }}</textarea>
+    <small>Tier 1: what flags a student for the second stage. Tier 2+: what the second stage must show to enter</small></label>
   <label>Placement test
     <select name="placement_tool_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.placement_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>

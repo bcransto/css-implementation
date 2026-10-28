@@ -53,7 +53,7 @@ app.secret_key = secret_key()
 
 # protocol fields in page order: (column, label)
 FIELDS = [
-    ("entry_rule", "Entry rule"),
+    ("entry_rule", "Intervention entry rule"),
     ("placement", "Placement test"),
     ("program", "Program"),
     ("deliverer_role", "Delivered by"),
