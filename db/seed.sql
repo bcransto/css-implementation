@@ -23,13 +23,15 @@ INSERT INTO tool(id,name,vendor,minutes,notes,url) VALUES
 ('bridges-i','Bridges Intervention','MLC',30,'K-5 kit organized by content (Vol 1-9); scripted; no outcome studies; not on NCII chart',NULL),
 ('ffo','Fraction Face-Off','Fuchs / Vanderbilt',35,'NCII-listed, gr 4-6; not owned',NULL),
 ('sbi','Schema-based instruction gr 6-8','Jitendra',45,'RCTs gr 6-8; PG 2021 Rec 5 strong; not owned',NULL),
-('fact-prog','Timed fact practice + strategy','Rocket Math or in-house',10,'PG 2021 Rec 6 moderate; not owned',NULL);
+('fact-prog','Timed fact practice + strategy','Rocket Math or in-house',10,'PG 2021 Rec 6 moderate; not owned',NULL),
+('m6-anne-screener','Homemade grade 6 standards screener','in-house (Anne)',NULL,'Anne''s own screener built from the DESE grade 6 standards; used in place of STAR Math. Not normed.',NULL);
 
 INSERT INTO tool_license VALUES
 ('cpm',5,8,NULL),('into-math',0,4,NULL),('fundations',0,3,NULL),
 ('mcas-m',3,8,NULL),('mcas-e',3,8,NULL),('star-m',1,5,'licensed 1-5; proposed 5-8'),('star-r',5,8,NULL),
 ('dibels',0,4,NULL),('aleks',5,8,NULL),('tmsfa',6,8,'free download'),('fact-2m',0,8,'in-house'),
-('wist',4,8,NULL),('celf5-s',0,8,'SLP owns'),('just-words',4,8,NULL),('read-nat',2,8,NULL),('bridges-i',0,5,'confirm volumes');
+('wist',4,8,NULL),('celf5-s',0,8,'SLP owns'),('just-words',4,8,NULL),('read-nat',2,8,NULL),('bridges-i',0,5,'confirm volumes'),
+('m6-anne-screener',6,6,'in-house');
 
 INSERT INTO source VALUES
 ('pg2021','Fuchs, L.S. et al. (2021). Assisting Students Struggling with Mathematics: Intervention in the Elementary Grades. WWC 2021006.','https://ies.ed.gov/ncee/wwc/PracticeGuide/26'),
@@ -116,12 +118,14 @@ INSERT INTO protocol(id,area_id,tier,profile_id,deliverer_role,placement_tool_id
 ('e6-com','ela-6',NULL,'e6-com','SLP','celf5-s',NULL,'star-r','PR at window','accuracy and rate fine; not a Tier 2 reading entry','n/a',NULL,NULL,'re-screen at next window from Tier 1','next window',NULL,'slp','sped-eval','proposed','no Tier 2 protocol exists for this profile','vf2012 p.5; hock');
 
 -- Observed practice (what a teacher does now). Survey rows; basis='observed', teacher = the teacher.
--- Anne (math 6), interviewed 2026-10: screens and probes with ALEKS against DESE grade 6 standards; does not use STAR Math.
+-- Anne (math 6), interviewed 2026-10: screens with her own standards-based instrument, teaches and probes with ALEKS; does not use STAR Math.
 INSERT INTO profile(id,area_id,teacher,basis,name,sort_rule) VALUES
 ('m6-anne-facts','math-6','Anne','observed','can''t do facts','teacher judgment from class work');
 INSERT INTO protocol(id,area_id,tier,profile_id,teacher,basis,as_of,evidence,deliverer_role,program_id,pm_tool_id,pm_metric,entry_rule,dosage,group_size,weeks,pm_rule,review_rule,exit_rule,next_step_id,nonresponse_id,status,status_note) VALUES
-('m6-anne-t1','math-6',1,'-','Anne','observed','2026-10','interview','classroom teacher','cpm','aleks','DESE grade 6 standards mastered','ALEKS knowledge check against DESE grade 6 standards, her own screener; does not use STAR Math','daily block','class','year','ALEKS as the ongoing probe, by DESE grade 6 standard; no STAR Math',NULL,NULL,NULL,NULL,'unwritten','ALEKS is both screener and probe; nothing written down'),
-('m6-anne-t2','math-6',2,'m6-anne-facts','Anne','observed','2026-10','interview','classroom teacher','aleks','aleks','DESE grade 6 standards mastered','ALEKS knowledge check (DESE grade 6 standards) + teacher judgment; not STAR Math','3 x 45 FLEX','varies','open-ended','ALEKS progress by DESE grade 6 standard; no shared measure with other teachers','none','none',NULL,'cst','unwritten','ALEKS is both screener and probe; nothing written down');
+('m6-anne-t1','math-6',1,'-','Anne','observed','2026-10','interview','classroom teacher','cpm','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade screener based on DESE grade 6 standards, plus ALEKS; does not use STAR Math','daily block','class','year','ALEKS progress by DESE grade 6 standard; no STAR Math',NULL,NULL,NULL,NULL,'unwritten','homemade screener and ALEKS; nothing written down'),
+('m6-anne-t2','math-6',2,'m6-anne-facts','Anne','observed','2026-10','interview','classroom teacher','aleks','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade standards screener + ALEKS + teacher judgment; not STAR Math','3 x 45 FLEX','varies','open-ended','ALEKS progress by DESE grade 6 standard; no shared measure with other teachers','none','none',NULL,'cst','unwritten','homemade screener and ALEKS; nothing written down');
+
+UPDATE protocol SET placement_tool_id = 'm6-anne-screener' WHERE id = 'm6-anne-t2';
 
 INSERT INTO student_example VALUES
 ('ex-k4-j','J','k4-t2-fact','Grade 4. Sep 8 STAR SS 592 PR 18, MCAS gr3 Partially. Second stage 592/598/601 (+1.5/wk). Oct 24 probe: 11 digits/2 min; Bridges Vol 4 Module 2. Oct 27-Feb 13 Bridges 3x30 group of 3. STAR 605,618,622,637,649,658,667,671 vs line +4.4/wk. Dec 8 on track; Jan 26 PR 41 (cycle 1); Feb 13 PR 42 exit. Mar 678, Apr 684.'),
