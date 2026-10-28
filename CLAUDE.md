@@ -32,7 +32,7 @@ Live at **<https://css-tiers.938752.xyz>** since 2026-10-27. Runs on Brad's Rasp
 
 - **Process.** systemd unit `css-tiers` ([deploy/css-tiers.service](deploy/css-tiers.service)) runs gunicorn from `/home/bcransto/css-implementation/.venv` on `127.0.0.1:4004` (3030 is Blue Book, 4000–4003 are Curriculum Map, gdocs-mcp and grocery-deals).
 - **Secrets.** `/home/bcransto/css-implementation/.env`, chmod 600, gitignored, loaded by the unit. Template: `.env.example`.
-- **Database.** `/home/bcransto/css-implementation/css.db`, built once with `build_db.py` and then edited only through the form. Never rerun `build_db.py` there; it replaces the file.
+- **Database.** `/home/bcransto/css-implementation/css.db` is the source of truth, edited through the form or by SQL over SSH. `db/seed.sql` is the 2026-10-27 starting content only and is **not** kept in sync with live edits (Brad's call, 2026-10-27); never rerun `build_db.py` on the Pi. Restore from `~/backups/` if needed.
 - **Backups.** [deploy/backup.sh](deploy/backup.sh) from the `bcransto` crontab at 1:50 AM, keeps 3 snapshots in `~/backups/`; ranchero rsyncs the home directory at 2:00 AM. Don't move the job past 2:00.
 - **Ingress.** The Cloudflare Tunnel `pinto-apps-tunnel` is dashboard-managed (cloudflared runs with a token; no config file on the Pi). Its route `css-tiers.938752.xyz` is a Published application pointing at `http://localhost:4004` (plain http: gunicorn has no TLS). Changes are made in Cloudflare One → Networks → Tunnels → Add route.
 - **The committee password** is only in the Pi's `.env`: `ssh bcransto@pinto 'grep CSS_PASSWORD ~/css-implementation/.env'`. Change it there and `sudo systemctl restart css-tiers`.
