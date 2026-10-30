@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.5
+# CSS tier-definition database — schema v0.6
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -28,6 +28,7 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 | `tool_license` | the grades a tool is owned/licensed for | **no row = not owned**. Replaces a global `owned` flag; STAR Math is 1–5, not 6–8 |
 | `ncii_screening` | one row of NCII's academic screening tools chart: tool × measure × grade | **no row = not on the chart**. Ratings are `convincing` / `partial` / `unconvincing` / `unavailable`, NULL when not yet entered; `*_d` flags are NCII's "d" marker. See "NCII ratings" |
 | `ncii_pm` | one row of NCII's academic progress monitoring tools chart: tool × measure × grade × measure type | same conventions. Performance level standards (reliability, validity, bias analysis) and growth standards (slope reliability, slope validity, alternate forms, two decision-rule ratings) |
+| `ncii_intervention` | one **study** on NCII's academic intervention tools chart: tool × study citation | same conventions; not grade-bound. Design and results (design, effect sizes as printed, disaggregated ES, visual analysis), other indicators (participants, fidelity, targeted and broader measures, number of outcome measures), intensity (group size, duration, interventionist, training), additional research |
 | `area_core` | a core program in an area | link table: grade 3 reading has a phonics core and a comprehension core |
 | `area_screener` | one screening tool in one area for a grade range | `role` ∈ screen / level_check / on_request; `cut` is the flag threshold |
 | `profile` | a diagnostic category inside an area, for the area (`teacher '-'`) or for one teacher | `sort_rule` says how the second stage assigns it. Row `'-'` is the whole-class sentinel |
@@ -63,11 +64,12 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 
 **Progress monitoring.** STAR (Math, Reading) is kept to its three windows: its single-test error (~±20–30 scaled points) exceeds the growth expected between biweekly tests. Biweekly measures are CBM probes (one-minute read, math CBM, fact probe). See `tool.notes`.
 
-## NCII ratings (v0.4, v0.5)
+## NCII ratings (v0.4–v0.6)
 
 The National Center on Intensive Intervention publishes three tools charts (screening, progress monitoring, intervention), each with its own columns and a four-value rating legend: full bubble *convincing evidence*, half *partially convincing*, empty *unconvincing*, null bubble *data unavailable*, plus a "d" marker on a cell when disaggregated data are available. `ncii_screening` copies the academic screening chart at its own grain: one row per tool × measure (NCII's "Area": Composite, Computation, Maze) × grade, because classification accuracy differs by grade and averaging it would lose what the chart says. Columns follow the chart's three tabs: classification accuracy fall/winter/spring (ratings, each with a `_d` flag), technical standards (reliability, validity, sample representativeness as ratings; bias analysis as the chart's text, Provided / Not Provided), and usability features (admin format, admin and scoring time, scoring format, types of decision rules, evidence for multiple decision rules, all text as written). `as_of` is the month the row was copied. A tool with no rows is not on the chart, the same convention as `tool_license`. The tool page (`/tool/<id>`) shows the rows; the area page's screening table shows the three classification-accuracy bubbles when exactly one row matches the screener's grades. The charts share almost no columns, so each gets its own table rather than one wide one.
 
-`ncii_pm` (v0.5) copies the academic progress monitoring chart the same way: one row per tool × measure × grade × **measure type**, where measure type is the chart's own text, `End Year Goal` for a general outcome measure or `Short Term Skill` for a mastery measure; it is part of the key because a tool can list both for one measure and grade. Columns follow the chart's three tabs: performance level standards (reliability and validity as ratings, bias analysis as text), growth standards (sensitivity as reliability and validity of the slope, alternate forms, decision rules for setting and revising goals and for changing instruction, all ratings), and usability (admin format, admin and scoring time, scoring format, and ROI & EOY benchmarks as the chart's text). No `_d` flags: the PM chart's legend lists the marker but none of its cells carry one; add flags by migration if a row ever needs one. The tool page shows the rows; in the protocol grid a PM tool cell shows the slope reliability, slope validity and alternate-forms bubbles when exactly one row matches the area's grades. The intervention chart (`ncii_intervention`) is still to come.
+`ncii_pm` (v0.5) copies the academic progress monitoring chart the same way: one row per tool × measure × grade × **measure type**, where measure type is the chart's own text, `End Year Goal` for a general outcome measure or `Short Term Skill` for a mastery measure; it is part of the key because a tool can list both for one measure and grade. Columns follow the chart's three tabs: performance level standards (reliability and validity as ratings, bias analysis as text), growth standards (sensitivity as reliability and validity of the slope, alternate forms, decision rules for setting and revising goals and for changing instruction, all ratings), and usability (admin format, admin and scoring time, scoring format, and ROI & EOY benchmarks as the chart's text). No `_d` flags: the PM chart's legend lists the marker but none of its cells carry one; add flags by migration if a row ever needs one. The tool page shows the rows; in the protocol grid a PM tool cell shows the slope reliability, slope validity and alternate-forms bubbles when exactly one row matches the area's grades. 
+`ncii_intervention` (v0.6) is different in grain because the chart is: one row per **study** of a program, keyed by tool and study citation, with no grade column. Its four tabs map to column groups: quality of design and results (design as a rating; the average effect sizes on targeted and broader measures kept as the chart prints them, with its `*`, `†` and `--` markers; disaggregated ES data as text; visual analysis as a rating that also allows `na`, the chart's NA for group designs), quality of other indicators (participants, fidelity of implementation, targeted measures and broader measures as ratings; number of outcome measures as text), intensity (administration group size, duration, minimum interventionist and training requirements, all text), and additional research (WWC or E-ESSA review, other research eligible for NCII review, text). The tool page lists the studies; in the protocol grid a program cell shows the design, targeted-measures and broader-measures bubbles when the program has one study, or an "n NCII studies" link.
 
 ## Invariants the app should enforce
 
@@ -75,12 +77,12 @@ The National Center on Intensive Intervention publishes three tools charts (scre
 - A protocol's `teacher` must equal its profile's `teacher` unless the profile is `'-'`. Enforced by the `protocol_profile_scope` trigger on insert; the form should also filter the profile select by teacher.
 - A protocol's `placement_tool_id`, `program_id`, `pm_tool_id` should normally have a `tool_license` row covering the area's grades; Q1 lists violations. Do not block the insert — the violation is the finding.
 - `citations` should name ids that exist in `source`; a soft check in the form, not a FK.
-- No `ncii_screening` or `ncii_pm` row for a tool means it is not on that NCII chart (or not entered yet); never add a "reviewed" boolean to `tool`.
+- No `ncii_screening`, `ncii_pm` or `ncii_intervention` row for a tool means it is not on that NCII chart (or not entered yet); never add a "reviewed" boolean to `tool`.
 - `student_example` rows are illustrations. Never load real student data into this database.
 
 ## Queries the app must answer
 
-`db/queries.sql`, Q1–Q12. Q5 is the page (bound to an area and a teacher; `'-'` for the defined rows). Q1/Q1b are the budget list. Q2–Q4, Q6 are the audit ("what's missing"). Q9 and Q10 are the variance view: each teacher's observed practice for a tier next to the defined rule, and the distinct sorting categories teachers use. Q11 is the NCII screening ratings for an area's screeners at its grades; Q12 the same for the PM tools its protocols use.
+`db/queries.sql`, Q1–Q13. Q5 is the page (bound to an area and a teacher; `'-'` for the defined rows). Q1/Q1b are the budget list. Q2–Q4, Q6 are the audit ("what's missing"). Q9 and Q10 are the variance view: each teacher's observed practice for a tier next to the defined rule, and the distinct sorting categories teachers use. Q11 is the NCII screening ratings for an area's screeners at its grades; Q12 the same for the PM tools its protocols use; Q13 the intervention studies for its programs.
 
 ## Review history
 
@@ -91,6 +93,8 @@ v0.3 added teacher scoping (`teacher`, `basis`, `as_of`, `evidence` on `protocol
 v0.4 (2026-10-30) added `ncii_screening` and Q11, and the `/tool/<id>` page. Decided with Brad: per-chart-row grain rather than one summary row per tool; screening chart only for now; the four NCII rating values with a separate `_d` flag rather than a fifth value; no data loaded yet, rows are entered as the chart is read. Applied to the live database by `db/migrations/2026-10-30-ncii-screening.sql`.
 
 v0.5 (2026-10-30) added `ncii_pm` and Q12, and the PM table on the tool page. Same decisions as v0.4; measure type added to the key. Applied by `db/migrations/2026-10-30-ncii-pm.sql`.
+
+v0.6 (2026-10-30) added `ncii_intervention` and Q13, keyed by study because that is the chart's grain. Applied by `db/migrations/2026-10-30-ncii-intervention.sql`. All three NCII charts now have a table; none has data yet.
 
 ## Known gaps
 

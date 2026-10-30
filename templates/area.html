@@ -67,6 +67,9 @@
           {% if col == 'pm_tool' and v.tool_id and pm_ncii.get(v.tool_id) %}{% set rows = pm_ncii[v.tool_id] %}
           <div class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}, {{ n.measure_type }}: slope reliability, slope validity, alternate forms">NCII {{ bubble(n.slope_reliability) }}{{ bubble(n.slope_validity) }}{{ bubble(n.alt_forms) }}</a>
             {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII rows</a>{% endif %}</div>{% endif %}
+          {% if col == 'program' and v.tool_id and prog_ncii.get(v.tool_id) %}{% set rows = prog_ncii[v.tool_id] %}
+          <div class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.study }}: design, targeted measures, broader measures; ES {{ n.es_targeted or '–' }} / {{ n.es_broader or '–' }}">NCII {{ bubble(n.design) }}{{ bubble(n.targeted_measures) }}{{ bubble(n.broader_measures) }}</a>
+            {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII studies</a>{% endif %}</div>{% endif %}
         </td>
         {% endfor %}
       </tr>

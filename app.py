@@ -4,7 +4,7 @@ Routes:
   /                      every area, with its core, screeners and row counts
   /area/<id>             Q5 for one area: one table per tier, one column per profile;
                          defined rows first, then each teacher's observed rows
-  /tool/<id>             one tool: licenses, where it is used, NCII screening and PM chart ratings
+  /tool/<id>             one tool: licenses, where it is used, NCII screening, PM and intervention chart ratings
   /login, /logout        shared committee password (env CSS_PASSWORD)
   /area/<id>/new         create a protocol row            (login required)
   /protocol/<id>/edit    edit a protocol row              (login required)
@@ -147,12 +147,15 @@ NCII_RATINGS = OrderedDict([
 ])
 NCII_SCREENING_URL = "https://charts.intensiveintervention.org/ascreening"
 NCII_PM_URL = "https://charts.intensiveintervention.org/aprogressmonitoring"
+NCII_INTERVENTION_URL = "https://charts.intensiveintervention.org/aintervention"
 
 
 def bubble(rating, disaggregated=0):
     """One NCII rating as a <span class="bubble">; '' when not entered. d = disaggregated data available."""
     if rating is None:
         return Markup('<span class="bubble none" title="not entered"></span>')
+    if rating == "na":
+        return Markup('<span class="bubble unavailable" title="Not applicable">NA</span>')
     sym, label = NCII_RATINGS.get(rating, ("?", rating))
     d = '<sup title="Disaggregated data available">d</sup>' if disaggregated else ""
     return Markup(f'<span class="bubble {escape(rating)}" title="{escape(label)}">{sym}{d}</span>')
@@ -162,6 +165,7 @@ app.jinja_env.globals["bubble"] = bubble
 app.jinja_env.globals["NCII_RATINGS"] = NCII_RATINGS
 app.jinja_env.globals["NCII_SCREENING_URL"] = NCII_SCREENING_URL
 app.jinja_env.globals["NCII_PM_URL"] = NCII_PM_URL
+app.jinja_env.globals["NCII_INTERVENTION_URL"] = NCII_INTERVENTION_URL
 
 
 # ---------------------------------------------------------------- auth
@@ -323,6 +327,12 @@ def area(area_id):
             """SELECT measure, grade, measure_type, slope_reliability, slope_validity, alt_forms
                FROM ncii_pm WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade, measure_type""",
             (tid, a["grade_lo"], a["grade_hi"])).fetchall()
+    # NCII intervention studies for each program the protocols use (Q13; studies are not grade-bound)
+    prog_ncii = {}
+    for tid in {r["program_id"] for r in rows if r["program_id"]}:
+        prog_ncii[tid] = con.execute(
+            """SELECT study, design, targeted_measures, broader_measures, es_targeted, es_broader
+               FROM ncii_intervention WHERE tool_id = ? ORDER BY study""", (tid,)).fetchall()
     examples = con.execute(
         """SELECT e.student_key, e.protocol_id, e.timeline, pr.name AS profile, p.tier
            FROM student_example e JOIN protocol p ON p.id = e.protocol_id
@@ -331,7 +341,7 @@ def area(area_id):
     return render_template(
         "area.html",
         area=a, cores=cores, screeners=screeners, examples=examples, all_areas=all_areas(con),
-        by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label, pm_ncii=pm_ncii,
+        by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label, pm_ncii=pm_ncii, prog_ncii=prog_ncii,
     )
 
 
@@ -362,8 +372,10 @@ def tool(tool_id):
         "SELECT * FROM ncii_screening WHERE tool_id = ? ORDER BY measure, grade", (tool_id,)).fetchall()
     ncii_pm = con.execute(
         "SELECT * FROM ncii_pm WHERE tool_id = ? ORDER BY measure, grade, measure_type", (tool_id,)).fetchall()
+    ncii_iv = con.execute(
+        "SELECT * FROM ncii_intervention WHERE tool_id = ? ORDER BY study", (tool_id,)).fetchall()
     return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
-                           all_areas=all_areas(con), tier_label=tier_label)
+                           ncii_iv=ncii_iv, all_areas=all_areas(con), tier_label=tier_label)
 
 
 # ---------------------------------------------------------------- edit form

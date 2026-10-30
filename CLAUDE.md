@@ -6,13 +6,13 @@ Read `docs/SCHEMA.md` first. It explains the one idea (a protocol row is area ×
 
 ## Layout
 
-- `db/schema.sql` — SQLite DDL, v0.5. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4 and v0.5 add `ncii_screening` and `ncii_pm` (NCII screening and progress monitoring chart ratings, one row per chart row; no row = not on the chart).
+- `db/schema.sql` — SQLite DDL, v0.6. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4–v0.6 add `ncii_screening`, `ncii_pm` and `ncii_intervention` (NCII tools-chart ratings, one row per chart row; intervention rows are per study; no row = not on the chart).
 - `db/migrations/` — dated SQL files, one per change to the live database (schema changes and interview content). Apply by hand: `ssh bcransto@pinto 'sqlite3 ~/css-implementation/css.db' < db/migrations/<file>.sql`. Schema changes also go into `db/schema.sql`; content does not go into `db/seed.sql`.
 - `db/seed.sql` — four areas of real content. `proposed` rows are design proposals, `doc` rows come from district documents.
 - `db/queries.sql` — the ten queries the app must answer. Q5 is the per-area page (bound to area + teacher). Q9/Q10 are the teacher-variance view.
 - `docs/SCHEMA.md` — design doc and review history.
 - `build_db.py` — rebuilds `css.db` from schema + seed (replaces the file).
-- `app.py`, `templates/`, `static/` — Flask app. Read view: `/` lists areas, `/area/<id>` is Q5 as one table per tier, one column per profile, defined rows then each teacher's observed rows; `/tool/<id>` is one tool with its licenses, where it is used, and its NCII screening and PM chart rows (tool names link to it). Edit: `/area/<id>/new` and `/protocol/<id>/edit`, behind a shared password.
+- `app.py`, `templates/`, `static/` — Flask app. Read view: `/` lists areas, `/area/<id>` is Q5 as one table per tier, one column per profile, defined rows then each teacher's observed rows; `/tool/<id>` is one tool with its licenses, where it is used, and its rows from the three NCII tools charts (tool names link to it). Edit: `/area/<id>/new` and `/protocol/<id>/edit`, behind a shared password.
 
 ## Build and run
 

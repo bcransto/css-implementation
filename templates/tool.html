@@ -107,4 +107,46 @@
 {% else %}
 <p class="muted">No NCII progress monitoring ratings recorded. A tool with no rows here is not on the chart, or has not been entered yet.</p>
 {% endif %}
+
+<h2>NCII academic intervention tools chart
+  <small>one row per study, as <a href="{{ NCII_INTERVENTION_URL }}">the chart</a> lists it</small></h2>
+{% if ncii_iv %}
+<div class="scroll">
+<table class="ncii">
+  <thead>
+    <tr><th rowspan="2">Study</th><th rowspan="2">Type</th>
+        <th colspan="4">Quality of design &amp; results</th><th colspan="5">Quality of other indicators</th><th colspan="4">Intensity</th><th colspan="2">Additional research</th>
+        <th rowspan="2">As of</th></tr>
+    <tr><th>Design</th><th title="Average effect size, targeted / broader measures">ES targeted / broader</th><th title="Disaggregated ES data available">Disagg. ES</th><th>Visual analysis</th>
+        <th>Participants</th><th title="Fidelity of implementation">Fidelity</th><th>Targeted measures</th><th>Broader measures</th><th title="Number of outcome measures">Outcome measures</th>
+        <th>Group size</th><th>Duration</th><th title="Minimum interventionist requirements">Interventionist</th><th title="Minimum training requirements">Training</th>
+        <th title="Intervention reviewed by WWC or E-ESSA">WWC / E-ESSA</th><th title="Other research potentially eligible for NCII review">Other research</th></tr>
+  </thead>
+  <tbody>{% for n in ncii_iv %}
+    <tr><td>{% if n.url %}<a href="{{ n.url }}">{{ n.study }}</a>{% else %}{{ n.study }}{% endif %}</td>
+        <td>{{ n.study_type or '' }}</td>
+        <td class="c">{{ bubble(n.design) }}</td>
+        <td>{{ n.es_targeted or '' }}{% if n.es_targeted or n.es_broader %} / {% endif %}{{ n.es_broader or '' }}</td>
+        <td>{{ n.disagg_es or '' }}</td>
+        <td class="c">{{ bubble(n.visual_analysis) }}</td>
+        <td class="c">{{ bubble(n.participants) }}</td>
+        <td class="c">{{ bubble(n.fidelity) }}</td>
+        <td class="c">{{ bubble(n.targeted_measures) }}</td>
+        <td class="c">{{ bubble(n.broader_measures) }}</td>
+        <td>{{ n.n_outcome_measures or '' }}</td>
+        <td>{{ n.admin_group_size or '' }}</td>
+        <td>{{ n.duration or '' }}</td>
+        <td>{{ n.interventionist or '' }}</td>
+        <td>{{ n.training or '' }}</td>
+        <td>{{ n.wwc_essa or '' }}</td>
+        <td>{{ n.other_research or '' }}</td>
+        <td class="muted">{{ n.as_of or '' }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
+<p class="legend">{% for key, (sym, label) in NCII_RATINGS.items() %}<span class="bubble {{ key }}">{{ sym }}</span> {{ label }} &nbsp; {% endfor %}<span class="bubble unavailable">NA</span> Not applicable &nbsp; blank: not entered.
+  Effect sizes as printed: * includes a significant effect; † could not be computed; -- no measures submitted.</p>
+{% else %}
+<p class="muted">No NCII intervention studies recorded. A program with no rows here is not on the chart, or has not been entered yet.</p>
+{% endif %}
 {% endblock %}

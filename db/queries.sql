@@ -101,3 +101,13 @@ JOIN tool t ON t.id = p.pm_tool_id
 LEFT JOIN ncii_pm n ON n.tool_id = p.pm_tool_id AND n.grade BETWEEN a.grade_lo AND a.grade_hi
 WHERE p.area_id = :area
 ORDER BY t.name, n.measure, n.grade, n.measure_type;
+
+-- Q13 NCII intervention studies for the programs an area's protocols use (studies are not grade-bound).
+--     No ncii_intervention row = the program is not on NCII's academic intervention chart.
+SELECT DISTINCT p.program_id, t.name, n.study, n.study_type, n.design, n.es_targeted, n.es_broader,
+       n.participants, n.fidelity, n.targeted_measures, n.broader_measures
+FROM protocol p
+JOIN tool t ON t.id = p.program_id
+LEFT JOIN ncii_intervention n ON n.tool_id = p.program_id
+WHERE p.area_id = :area
+ORDER BY t.name, n.study;
