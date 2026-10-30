@@ -52,7 +52,7 @@
         <td class="c">{{ bubble(n.ca_spring, n.ca_spring_d) }}</td>
         <td class="c">{{ bubble(n.reliability) }}</td>
         <td class="c">{{ bubble(n.validity) }}</td>
-        <td class="c">{{ bubble(n.sample_rep) }}</td>
+        <td>{{ n.sample_rep or '' }}</td>
         <td>{{ n.bias_analysis or '' }}</td>
         <td>{{ n.admin_format or '' }}</td>
         <td>{{ n.admin_time or '' }}</td>

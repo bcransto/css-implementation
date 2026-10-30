@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.6
+-- MTSS tier-definition schema, v0.7
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -14,6 +14,7 @@
 --   No row for a tool = not on the chart. PM and intervention charts to follow.
 -- v0.5: ncii_pm, one row per row of NCII's academic progress monitoring tools chart.
 -- v0.6: ncii_intervention, one row per study on NCII's academic intervention tools chart.
+-- v0.7: ncii_screening.sample_rep is chart text, not a rating; area.building dropped.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -21,7 +22,6 @@ CREATE TABLE area (
   subject     TEXT NOT NULL,              -- 'math' | 'reading' | 'behavior'
   grade_lo    INTEGER NOT NULL,           -- K = 0
   grade_hi    INTEGER NOT NULL,
-  building    TEXT,                       -- 'CPS' | 'CMS' | 'CCHS'
   has_flex    INTEGER NOT NULL DEFAULT 0
 );
 
@@ -47,7 +47,7 @@ CREATE TABLE tool_license (
 -- No row for a tool = not on the chart (same convention as tool_license).
 -- Ratings: convincing / partial / unconvincing (NCII's full, half, empty bubble),
 -- 'unavailable' = NCII's null bubble, NULL = not yet entered. *_d = NCII's "d" marker,
--- disaggregated data available.
+-- disaggregated data available. Sample representativeness and bias analysis are chart text.
 CREATE TABLE ncii_screening (
   tool_id     TEXT NOT NULL REFERENCES tool(id),
   measure     TEXT NOT NULL,              -- NCII "Area": 'Composite', 'Computation', 'Maze'
@@ -60,7 +60,7 @@ CREATE TABLE ncii_screening (
   ca_spring_d INTEGER NOT NULL DEFAULT 0,
   reliability TEXT CHECK (reliability IN ('convincing','partial','unconvincing','unavailable')),
   validity    TEXT CHECK (validity    IN ('convincing','partial','unconvincing','unavailable')),
-  sample_rep  TEXT CHECK (sample_rep  IN ('convincing','partial','unconvincing','unavailable')),  -- Sample Representativeness
+  sample_rep  TEXT,                       -- Sample Representativeness, chart text: 'National without Cross-Validation'
   bias_analysis TEXT,                     -- 'Provided' | 'Not Provided' (chart text, not a bubble)
   admin_format TEXT,                      -- 'Individual', 'Group', 'Individual; Group'
   admin_time  TEXT,                       -- Admin & Scoring Time, as written on the chart
@@ -222,5 +222,5 @@ CREATE TABLE student_example (
 );
 
 -- sentinels: whole-class rows use profile '-'
-INSERT INTO area VALUES ('-', '-', 0, 0, NULL, 0);
+INSERT INTO area VALUES ('-', '-', 0, 0, 0);
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');

@@ -5,14 +5,13 @@
 <p class="lede">One page per subject × grade band. Each page shows, for every tier and diagnostic profile, what the tier actually does: the flag rule, the placement test, the program, how progress is measured, when it is reviewed, how a student exits, and where they go if they don't.</p>
 
 <table class="list">
-  <thead><tr><th>Area</th><th>Grades</th><th>Building</th><th>Core</th><th>Screeners</th><th>Defined rows</th><th>Teachers surveyed</th></tr></thead>
+  <thead><tr><th>Area</th><th>Grades</th><th>Core</th><th>Screeners</th><th>Defined rows</th><th>Teachers surveyed</th></tr></thead>
   <tbody>
   {% for a in areas %}
   <tr>
     <td><a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>
         {% if a.has_flex %}<span class="pill">FLEX</span>{% endif %}</td>
     <td>{{ a.grade_lo|grade_span(a.grade_hi) }}</td>
-    <td>{{ a.building or '' }}</td>
     <td>{{ a.cores or '' }}{% if not a.cores %}<span class="muted">none named</span>{% endif %}</td>
     <td>{{ (a.screeners or '').replace(',', ', ') }}</td>
     <td class="num">{{ a.defined_rows }}</td>

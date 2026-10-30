@@ -44,10 +44,10 @@ INSERT INTO source VALUES
 ('siegler','Siegler, R.S. et al. (2012). Early predictors of high school mathematics achievement. Psychological Science 23(7).',NULL);
 
 INSERT INTO area VALUES
-('math-k4','math',0,4,'CPS',0),
-('reading-35','reading',3,5,'CPS',0),
-('math-6','math',6,6,'CMS',1),
-('ela-6','reading',6,6,'CMS',1);
+('math-k4','math',0,4,0),
+('reading-35','reading',3,5,0),
+('math-6','math',6,6,1),
+('ela-6','reading',6,6,1);
 
 INSERT INTO route VALUES
 ('to-t2','tier',2,NULL,'Tier 2; placement next. Owner: interventionist.'),

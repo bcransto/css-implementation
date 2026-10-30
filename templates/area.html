@@ -5,7 +5,7 @@
 {% endblock %}
 {% block body %}
 <h1>{{ area.subject|capitalize }}, grade{% if area.grade_lo != area.grade_hi %}s{% endif %} {{ area.grade_lo|grade_span(area.grade_hi) }}
-  <small>{{ area.building or '' }}{% if area.has_flex %} · FLEX block{% endif %}</small>
+  {% if area.has_flex %}<small>FLEX block</small>{% endif %}
   {% if logged_in() %}<a class="btn" href="{{ url_for('protocol_new', area_id=area.id) }}">+ Add row</a>{% endif %}</h1>
 
 <section class="setup">

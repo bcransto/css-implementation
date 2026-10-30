@@ -3,7 +3,7 @@
 One sheet per teacher, ELA or math. Answers go into that teacher's *observed* rows on the area page (basis = observed, status = unwritten). Terms in bold are NCII vocabulary; the plain gloss follows. The database field each answer fills is in parentheses.
 
 ## Area and core
-1. Teacher's name, grade and subject, interview date, building (area). Does the grade have a FLEX block (has_flex)? What's the **core instruction** in this grade: the program everyone gets, or does it depend on the section (core)?
+1. Teacher's name, grade and subject, interview date (area). Does the grade have a FLEX block (has_flex)? What's the **core instruction** in this grade: the program everyone gets, or does it depend on the section (core)?
 
 ## Universal screening and the flag (Tier 1)
 2. What does she use as a **screener** in September to decide who's at risk: MCAS, STAR, ALEKS, a reading inventory, last year's teacher, a pre-test of her own (screening table)?
