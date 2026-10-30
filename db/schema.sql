@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.7
+-- MTSS tier-definition schema, v0.8
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -15,6 +15,8 @@
 -- v0.5: ncii_pm, one row per row of NCII's academic progress monitoring tools chart.
 -- v0.6: ncii_intervention, one row per study on NCII's academic intervention tools chart.
 -- v0.7: ncii_screening.sample_rep is chart text, not a rating; area.building dropped.
+-- v0.8: tool carries the publisher's design (minimum dose, group size, deliverer, training, grades),
+--   named after NCII's Intensity columns; tool_evidence records what each reviewer found, or did not.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -29,9 +31,33 @@ CREATE TABLE tool (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   vendor      TEXT,
-  minutes     INTEGER,
-  notes       TEXT,                       -- evidence, training, NCII listing, URL: prose
-  url         TEXT
+  minutes     INTEGER,                    -- minutes per session: the design minimum for a program, admin time for an assessment
+  notes       TEXT,                       -- prose
+  url         TEXT,
+  -- the publisher's design for a program, named after NCII's Intensity columns; NULL = not stated
+  design_group TEXT,                      -- Administration Group Size as the source states it: 'Small group of students', '1-5'
+  max_group   INTEGER,                    -- largest group the design allows, when the source gives a number
+  min_per_week INTEGER,                   -- Minimum Duration: sessions per week
+  min_weeks   INTEGER,                    -- Minimum Duration: weeks, when stated
+  interventionist TEXT,                   -- Minimum Interventionist Requirements
+  training    TEXT,                       -- Minimum Training Requirements
+  grade_lo    INTEGER,                    -- grades the design covers (not the license: see tool_license)
+  grade_hi    INTEGER,
+  design_source TEXT                      -- where the design came from: 'NCII intervention chart', an implementation guide, a URL
+);
+
+-- what each reviewer found about a tool, one row per source consulted. A 'not listed' row is a fact:
+-- it says the source was checked on as_of. Absence of rows = nobody has looked yet.
+CREATE TABLE tool_evidence (
+  tool_id     TEXT NOT NULL REFERENCES tool(id),
+  source      TEXT NOT NULL CHECK (source IN ('ncii','wwc','essa','publisher','study','other')),
+  finding     TEXT NOT NULL,              -- the source's own words: 'Potentially positive effects', 'Promising', 'not listed'
+  domain      TEXT,                       -- outcome the finding is about: 'alphabetics', 'computation'
+  grades      TEXT,                       -- grade range the finding covers, as stated
+  url         TEXT,
+  notes       TEXT,
+  as_of       TEXT,                       -- YYYY-MM the source was checked
+  PRIMARY KEY (tool_id, source, finding)
 );
 
 -- which grades a tool is licensed/owned for; absence of a row = not owned

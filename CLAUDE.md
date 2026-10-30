@@ -6,7 +6,7 @@ Read `docs/SCHEMA.md` first. It explains the one idea (a protocol row is area ×
 
 ## Layout
 
-- `db/schema.sql` — SQLite DDL, v0.7. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4–v0.6 add `ncii_screening`, `ncii_pm` and `ncii_intervention` (NCII tools-chart ratings, one row per chart row; intervention rows are per study; no row = not on the chart).
+- `db/schema.sql` — SQLite DDL, v0.8. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4–v0.6 add `ncii_screening`, `ncii_pm` and `ncii_intervention` (NCII tools-chart ratings, one row per chart row; intervention rows are per study; no row = not on the chart). v0.8 adds the publisher's design minimums on `tool` and `tool_evidence` (what each reviewer found, including "not listed").
 - `db/migrations/` — dated SQL files, one per change to the live database (schema changes and interview content). Apply by hand: `ssh bcransto@pinto 'sqlite3 ~/css-implementation/css.db' < db/migrations/<file>.sql`. Schema changes also go into `db/schema.sql`; content does not go into `db/seed.sql`.
 - `db/seed.sql` — four areas of real content. `proposed` rows are design proposals, `doc` rows come from district documents.
 - `db/queries.sql` — the ten queries the app must answer. Q5 is the per-area page (bound to area + teacher). Q9/Q10 are the teacher-variance view.
@@ -57,7 +57,7 @@ ssh bcransto@pinto 'sqlite3 ~/css-implementation/css.db'
 
 ## Stack
 
-SQLite + Flask + gunicorn. Read view and the `protocol` edit form are done. The form has `<select>` inputs for every `_id` column and textareas for rules. Hard errors (block the save): missing status, profile whose teacher differs from the row's teacher, duplicate area/tier/profile/teacher, bad id. Soft warnings (shown, never block): a tool with no `tool_license` row covering the area's grades (the Q1 budget list), and a citation token that is not a `source` id. Blank fields are stored as NULL. Not built: delete, and editing of any table other than `protocol` (tools, profiles, routes, screeners and the `ncii_*` tables change by SQL on pinto, recorded in `db/migrations/`).
+SQLite + Flask + gunicorn. Read view and the `protocol` edit form are done. The form has `<select>` inputs for every `_id` column and textareas for rules. Hard errors (block the save): missing status, profile whose teacher differs from the row's teacher, duplicate area/tier/profile/teacher, bad id. Soft warnings (shown, never block): a tool with no `tool_license` row covering the area's grades (the Q1 budget list), a dosage or group size outside the program's design minimums on `tool`, and a citation token that is not a `source` id. Blank fields are stored as NULL. Not built: delete, and editing of any table other than `protocol` (tools, profiles, routes, screeners and the `ncii_*` tables change by SQL on pinto, recorded in `db/migrations/`).
 
 ## Rules
 

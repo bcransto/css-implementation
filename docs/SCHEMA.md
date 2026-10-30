@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.7
+# CSS tier-definition database — schema v0.8
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -24,7 +24,8 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 | table | one row is | notes |
 |---|---|---|
 | `area` | a subject × grade band (`math-6`, `reading-k2`) | numeric `grade_lo`/`grade_hi`, K = 0; `has_flex`. (`building` dropped in v0.7: the grade band implies it) |
-| `tool` | a named instrument or program | no `kind` column: a tool's role is whichever `protocol` column points at it |
+| `tool` | a named instrument or program | no `kind` column: a tool's role is whichever `protocol` column points at it. Carries the publisher's **design** (`minutes`, `min_per_week`, `min_weeks`, `design_group`/`max_group`, `interventionist`, `training`, `grade_lo`/`grade_hi`, `design_source`), named after NCII's Intensity columns |
+| `tool_evidence` | what one reviewer found about a tool | `source` ∈ ncii / wwc / essa / publisher / study / other; `finding` in the source's words. A "not listed" row is a fact with a date; no rows = nobody has looked |
 | `tool_license` | the grades a tool is owned/licensed for | **no row = not owned**. Replaces a global `owned` flag; STAR Math is 1–5, not 6–8 |
 | `ncii_screening` | one row of NCII's academic screening tools chart: tool × measure × grade | **no row = not on the chart**. Ratings are `convincing` / `partial` / `unconvincing` / `unavailable`, NULL when not yet entered; `*_d` flags are NCII's "d" marker. See "NCII ratings" |
 | `ncii_pm` | one row of NCII's academic progress monitoring tools chart: tool × measure × grade × measure type | same conventions. Performance level standards (reliability, validity, bias analysis) and growth standards (slope reliability, slope validity, alternate forms, two decision-rule ratings) |
@@ -71,6 +72,12 @@ The National Center on Intensive Intervention publishes three tools charts (scre
 `ncii_pm` (v0.5) copies the academic progress monitoring chart the same way: one row per tool × measure × grade × **measure type**, where measure type is the chart's own text, `End Year Goal` for a general outcome measure or `Short Term Skill` for a mastery measure; it is part of the key because a tool can list both for one measure and grade. Columns follow the chart's three tabs: performance level standards (reliability and validity as ratings, bias analysis as text), growth standards (sensitivity as reliability and validity of the slope, alternate forms, decision rules for setting and revising goals and for changing instruction, all ratings), and usability (admin format, admin and scoring time, scoring format, and ROI & EOY benchmarks as the chart's text). No `_d` flags: the PM chart's legend lists the marker but none of its cells carry one; add flags by migration if a row ever needs one. The tool page shows the rows; in the protocol grid a PM tool cell shows the slope reliability, slope validity and alternate-forms bubbles when exactly one row matches the area's grades. 
 `ncii_intervention` (v0.6) is different in grain because the chart is: one row per **study** of a program, keyed by tool and study citation, with no grade column. Its four tabs map to column groups: quality of design and results (design as a rating; the average effect sizes on targeted and broader measures kept as the chart prints them, with its `*`, `†` and `--` markers; disaggregated ES data as text; visual analysis as a rating that also allows `na`, the chart's NA for group designs), quality of other indicators (participants, fidelity of implementation, targeted measures and broader measures as ratings; number of outcome measures as text), intensity (administration group size, duration, minimum interventionist and training requirements, all text), and additional research (WWC or E-ESSA review, other research eligible for NCII review, text). The tool page lists the studies; in the protocol grid a program cell shows the design, targeted-measures and broader-measures bubbles when the program has one study, or an "n NCII studies" link.
 
+## Design vs dose (v0.8)
+
+Three dosages exist for every program: what the publisher designed it for, what the NCII studies tested (per study, in `ncii_intervention`), and what Carlisle does (`protocol.dosage`, `group_size`). The publisher's design lives on `tool`, in fields named after the NCII intervention chart's Intensity tab (Administration Group Size, Minimum Duration, Minimum Interventionist Requirements, Minimum Training Requirements), because that tab is the developer's submission, not a rated finding. For a program NCII reviewed the fields are filled from the chart; for one it has not (Just Words, Bridges Intervention) they come from the implementation guide, and `design_source` says which. They are minimums. The app parses `dosage` ("3 x 45 FLEX", "daily") and `group_size` ("about 4", "4-5") and marks a protocol's cell when its dose is below the design or its group above it; the edit form shows the same as a soft warning. Only what both sides state is compared.
+
+`tool_evidence` answers "what has anyone found" for programs outside NCII: one row per source consulted, with the finding in that source's own vocabulary (WWC effectiveness ratings, ESSA tiers) rather than translated into NCII bubbles. Recording "not listed" with a date is the point: it separates "not reviewed" from "not yet looked up".
+
 ## Invariants the app should enforce
 
 - `UNIQUE(area_id, tier, profile_id, teacher)` — works because `profile_id` and `teacher` default to `'-'`, never NULL.
@@ -95,6 +102,8 @@ v0.4 (2026-10-30) added `ncii_screening` and Q11, and the `/tool/<id>` page. Dec
 v0.5 (2026-10-30) added `ncii_pm` and Q12, and the PM table on the tool page. Same decisions as v0.4; measure type added to the key. Applied by `db/migrations/2026-10-30-ncii-pm.sql`.
 
 v0.6 (2026-10-30) added `ncii_intervention` and Q13, keyed by study because that is the chart's grain. Applied by `db/migrations/2026-10-30-ncii-intervention.sql`. All three NCII charts now have a table.
+
+v0.8 (2026-10-30) added the design fields on `tool` and `tool_evidence`, the design-vs-dose marker in the grid and edit form, and loaded Read Naturally's design from the chart. Applied by `db/migrations/2026-10-30-tool-design-evidence.sql`.
 
 v0.7 (2026-10-30) corrected `ncii_screening.sample_rep` to text after the first real chart export showed it is not a bubble, dropped `area.building` (the grade band implies the building), renamed tool `dibels` to DIBELS 8th Edition (the district does not use Acadience), and loaded the 36 DIBELS 8 screening rows from the chart. Applied by `db/migrations/2026-10-30-dibels8-building.sql`.
 

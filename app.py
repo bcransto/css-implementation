@@ -224,6 +224,7 @@ SELECT p.id, p.tier, p.teacher, p.basis, p.as_of, p.evidence,
        pr.name AS profile, pr.sort_rule,
        pl.name AS placement, pl.notes AS placement_notes, p.placement_tool_id AS placement_id,
        pg.name AS program,   pg.notes AS program_notes,   p.program_id,
+       pg.minutes AS design_minutes, pg.min_per_week AS design_per_week, pg.max_group AS design_max_group,
        pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
        p.pm_metric, p.entry_rule, p.deliverer_role, p.dosage, p.group_size, p.weeks,
        p.pm_rule, p.review_rule, p.exit_rule,
@@ -240,6 +241,43 @@ LEFT JOIN route nr ON nr.id = p.nonresponse_id
 WHERE p.area_id = ?
 ORDER BY (p.teacher <> '-'), p.teacher, (p.tier IS NULL), p.tier, (pr.id <> '-'), pr.name
 """
+
+
+DOSE_RE = re.compile(r"(\d+)(?:\s*-\s*\d+)?\s*[x×]\s*(\d+)", re.I)
+
+
+def parse_dosage(text):
+    """'3 x 45 FLEX' -> (3, 45); '3-5 x 20-40' -> (3, 20) (the low end); 'daily block' -> (5, None)."""
+    if not text:
+        return None, None
+    m = DOSE_RE.search(text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    if "daily" in text.lower():
+        return 5, None
+    return None, None
+
+
+def parse_group(text):
+    """'about 4' -> 4; '4-5' -> 5 (the high end); 'class' -> None."""
+    if not text:
+        return None
+    nums = [int(n) for n in re.findall(r"\d+", text)]
+    return max(nums) if nums else None
+
+
+def design_check(dosage, group_size, minutes, per_week, max_group):
+    """Where a protocol's dose or group falls short of the program's design. Only compares what both sides state."""
+    out = []
+    pw, mins = parse_dosage(dosage)
+    if mins is not None and minutes is not None and mins < minutes:
+        out.append(f"{mins} min per session; the program's design minimum is {minutes}")
+    if pw is not None and per_week is not None and pw < per_week:
+        out.append(f"{pw} sessions a week; the design minimum is {per_week}")
+    g = parse_group(group_size)
+    if g is not None and max_group is not None and g > max_group:
+        out.append(f"group of {g}; the design allows at most {max_group}")
+    return out
 
 
 def cell(row, col):
@@ -270,6 +308,10 @@ def group_protocols(rows):
             "evidence": r["evidence"],
             "cells": {col: cell(r, col) for col, _ in FIELDS},
         })
+        warns = design_check(r["dosage"], r["group_size"], r["design_minutes"], r["design_per_week"], r["design_max_group"])
+        for w in warns:
+            key = "group_size" if w.startswith("group") else "dosage"
+            cols[-1]["cells"][key]["warn"] = w
     return by_teacher
 
 
@@ -374,8 +416,10 @@ def tool(tool_id):
         "SELECT * FROM ncii_pm WHERE tool_id = ? ORDER BY measure, grade, measure_type", (tool_id,)).fetchall()
     ncii_iv = con.execute(
         "SELECT * FROM ncii_intervention WHERE tool_id = ? ORDER BY study", (tool_id,)).fetchall()
+    evidence = con.execute(
+        "SELECT * FROM tool_evidence WHERE tool_id = ? ORDER BY source, finding", (tool_id,)).fetchall()
     return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
-                           ncii_iv=ncii_iv, all_areas=all_areas(con), tier_label=tier_label)
+                           ncii_iv=ncii_iv, evidence=evidence, all_areas=all_areas(con), tier_label=tier_label)
 
 
 # ---------------------------------------------------------------- edit form
@@ -445,6 +489,12 @@ def soft_warnings(con, area_id, vals):
             where = f"licensed for grades {lic}" if lic else "not owned"
             warns.append(f"{label} {name} is {where}; this area is grades "
                          f"{grade_span(a['grade_lo'], a['grade_hi'])}. (Q1 budget list)")
+    if vals.get("program_id"):
+        d = con.execute("SELECT name, minutes, min_per_week, max_group FROM tool WHERE id = ?",
+                        (vals["program_id"],)).fetchone()
+        if d:
+            for w in design_check(vals.get("dosage"), vals.get("group_size"), d["minutes"], d["min_per_week"], d["max_group"]):
+                warns.append(f"{d['name']}: {w}.")
     if vals.get("citations"):
         known = {r["id"] for r in con.execute("SELECT id FROM source")}
         for part in vals["citations"].split(";"):

@@ -9,7 +9,25 @@
 {% if tool.notes %}<p class="lede">{{ tool.notes }}{% if tool.url %} <a href="{{ tool.url }}">{{ tool.url }}</a>{% endif %}</p>
 {% elif tool.url %}<p class="lede"><a href="{{ tool.url }}">{{ tool.url }}</a></p>{% endif %}
 
-<section class="setup">
+<section class="setup three">
+  <div>
+    <h3>Design <small class="muted">(publisher's minimums)</small></h3>
+    {% if tool.minutes or tool.design_group or tool.min_per_week or tool.interventionist or tool.training or tool.grade_lo is not none %}
+    <dl class="design">
+      {% if tool.design_group or tool.max_group %}<dt>Group size</dt><dd>{{ tool.design_group or '' }}{% if tool.max_group %} <span class="muted">(max {{ tool.max_group }})</span>{% endif %}</dd>{% endif %}
+      {% if tool.minutes or tool.min_per_week or tool.min_weeks %}<dt>Dose</dt><dd>{% if tool.minutes %}{{ tool.minutes }} min{% endif %}{% if tool.min_per_week %}, {{ tool.min_per_week }}× a week{% endif %}{% if tool.min_weeks %}, {{ tool.min_weeks }} weeks{% endif %}</dd>{% endif %}
+      {% if tool.interventionist %}<dt>Delivered by</dt><dd>{{ tool.interventionist }}</dd>{% endif %}
+      {% if tool.training %}<dt>Training</dt><dd>{{ tool.training }}</dd>{% endif %}
+      {% if tool.grade_lo is not none %}<dt>Grades</dt><dd>{{ tool.grade_lo|grade_span(tool.grade_hi) }}</dd>{% endif %}
+      {% if tool.design_source %}<dt>Source</dt><dd class="muted">{{ tool.design_source }}</dd>{% endif %}
+    </dl>
+    {% else %}<p class="muted">No design recorded.</p>{% endif %}
+    <h3 style="margin-top:14px">Evidence <small class="muted">(what each reviewer found)</small></h3>
+    {% if evidence %}<ul class="evidence">{% for e in evidence %}
+      <li><strong>{{ {'ncii':'NCII','wwc':'WWC','essa':'Evidence for ESSA','publisher':'Publisher','study':'Study','other':'Other'}[e.source] }}</strong>: {% if e.url %}<a href="{{ e.url }}">{{ e.finding }}</a>{% else %}{{ e.finding }}{% endif %}{% if e.domain %} <span class="muted">· {{ e.domain }}</span>{% endif %}{% if e.grades %} <span class="muted">· grades {{ e.grades }}</span>{% endif %}{% if e.as_of %} <span class="muted">· {{ e.as_of }}</span>{% endif %}{% if e.notes %}<div class="note muted">{{ e.notes }}</div>{% endif %}</li>
+    {% endfor %}</ul>
+    {% else %}<p class="muted">No reviewer checked yet.</p>{% endif %}
+  </div>
   <div>
     <h3>Licensed for</h3>
     {% if licenses %}<ul>{% for l in licenses %}<li>grades {{ l.grade_lo|grade_span(l.grade_hi) }}{% if l.note %} <span class="muted">({{ l.note }})</span>{% endif %}</li>{% endfor %}</ul>
