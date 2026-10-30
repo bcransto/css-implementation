@@ -52,6 +52,18 @@ table.grid td.status-iep { background: #f3f7fc; }
 table.grid.observed { border-style: dashed; }
 table.grid td[title] { cursor: help; text-decoration: underline dotted #bbb; text-underline-offset: 3px; }
 
+/* NCII ratings */
+.bubble { display: inline-block; min-width: 1.1em; text-align: center; font-size: 15px; line-height: 1; color: #333; }
+.bubble.unavailable { color: #999; } .bubble.none { min-width: 1.1em; }
+.bubble sup { font-size: 9px; font-weight: 600; color: #1d4f91; margin-left: 1px; }
+td.ncii-cell { white-space: nowrap; } td.ncii-cell a { text-decoration: none; } td.ncii-cell .bubble { margin-right: 3px; } td.ncii-cell a:hover .bubble { color: #1d4f91; }
+table.ncii { background: #fff; border: 1px solid var(--line); }
+table.ncii th, table.ncii td { padding: 6px 10px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 13px; }
+table.ncii thead th { background: var(--head); text-align: center; }
+table.ncii td.c { text-align: center; }
+p.legend { font-size: 13px; color: var(--muted); margin-top: 8px; }
+h1 code { font-size: 12px; color: var(--muted); background: var(--head); padding: 1px 5px; border-radius: 3px; }
+
 dl.examples dt { font-weight: 600; margin-top: 10px; }
 dl.examples dd { margin: 2px 0 0; max-width: 100ch; color: #333; }
 @media (max-width: 800px) { section.setup { grid-template-columns: 1fr; } main { padding: 12px 16px; } }

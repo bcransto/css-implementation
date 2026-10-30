@@ -4,6 +4,7 @@ Routes:
   /                      every area, with its core, screeners and row counts
   /area/<id>             Q5 for one area: one table per tier, one column per profile;
                          defined rows first, then each teacher's observed rows
+  /tool/<id>             one tool: licenses, where it is used, NCII screening-chart ratings
   /login, /logout        shared committee password (env CSS_PASSWORD)
   /area/<id>/new         create a protocol row            (login required)
   /protocol/<id>/edit    edit a protocol row              (login required)
@@ -23,6 +24,7 @@ from functools import wraps
 
 from flask import (Flask, abort, flash, g, redirect, render_template, request,
                    session, url_for)
+from markupsafe import Markup, escape
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("CSS_DB", os.path.join(HERE, "css.db"))
@@ -90,6 +92,7 @@ def db():
         con = sqlite3.connect(DB_PATH)
         con.execute("PRAGMA foreign_keys = ON")
         con.row_factory = sqlite3.Row
+        con.create_function("grade_span", 2, grade_span)
         g.db = con
     return g.db
 
@@ -134,6 +137,29 @@ def route_label(kind, tier):
 
 
 app.jinja_env.globals["route_label"] = route_label
+
+# NCII tools-chart ratings: symbol and legend text for each value of a rating column
+NCII_RATINGS = OrderedDict([
+    ("convincing", ("●", "Convincing evidence")),
+    ("partial", ("◐", "Partially convincing evidence")),
+    ("unconvincing", ("○", "Unconvincing evidence")),
+    ("unavailable", ("–", "Data unavailable")),
+])
+NCII_SCREENING_URL = "https://charts.intensiveintervention.org/ascreening"
+
+
+def bubble(rating, disaggregated=0):
+    """One NCII rating as a <span class="bubble">; '' when not entered. d = disaggregated data available."""
+    if rating is None:
+        return Markup('<span class="bubble none" title="not entered"></span>')
+    sym, label = NCII_RATINGS.get(rating, ("?", rating))
+    d = '<sup title="Disaggregated data available">d</sup>' if disaggregated else ""
+    return Markup(f'<span class="bubble {escape(rating)}" title="{escape(label)}">{sym}{d}</span>')
+
+
+app.jinja_env.globals["bubble"] = bubble
+app.jinja_env.globals["NCII_RATINGS"] = NCII_RATINGS
+app.jinja_env.globals["NCII_SCREENING_URL"] = NCII_SCREENING_URL
 
 
 # ---------------------------------------------------------------- auth
@@ -190,9 +216,9 @@ def logout():
 Q5_ALL_TEACHERS = """
 SELECT p.id, p.tier, p.teacher, p.basis, p.as_of, p.evidence,
        pr.name AS profile, pr.sort_rule,
-       pl.name AS placement, pl.notes AS placement_notes,
-       pg.name AS program,   pg.notes AS program_notes,
-       pm.name AS pm_tool,   pm.notes AS pm_tool_notes,
+       pl.name AS placement, pl.notes AS placement_notes, p.placement_tool_id AS placement_id,
+       pg.name AS program,   pg.notes AS program_notes,   p.program_id,
+       pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
        p.pm_metric, p.entry_rule, p.deliverer_role, p.dosage, p.group_size, p.weeks,
        p.pm_rule, p.review_rule, p.exit_rule,
        nx.kind AS next_kind, nx.tier AS next_tier, nx.description AS next_desc,
@@ -211,13 +237,13 @@ ORDER BY (p.teacher <> '-'), p.teacher, (p.tier IS NULL), p.tier, (pr.id <> '-')
 
 
 def cell(row, col):
-    """Return {text, note} for one field of one protocol."""
+    """Return {text, note, tool_id} for one field of one protocol. tool_id is set for tool columns."""
     if col == "next_step":
         return {"text": route_label(row["next_kind"], row["next_tier"]), "note": row["next_desc"]}
     if col == "nonresponse":
         return {"text": route_label(row["nr_kind"], row["nr_tier"]), "note": row["nr_desc"]}
     if col in ("placement", "program", "pm_tool"):
-        return {"text": row[col], "note": row[col + "_notes"]}
+        return {"text": row[col], "note": row[col + "_notes"], "tool_id": row[col + "_id"]}
     return {"text": row[col], "note": None}
 
 
@@ -274,14 +300,19 @@ def area(area_id):
     if a is None:
         abort(404)
     cores = con.execute(
-        """SELECT t.name, c.role, c.status FROM area_core c JOIN tool t ON t.id = c.tool_id
+        """SELECT t.id AS tool_id, t.name, c.role, c.status FROM area_core c JOIN tool t ON t.id = c.tool_id
            WHERE c.area_id = ? ORDER BY c.role""", (area_id,)).fetchall()
-    screeners = con.execute(
-        """SELECT t.name, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
+    screeners = [dict(r) for r in con.execute(
+        """SELECT t.id AS tool_id, t.name, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
            FROM area_screener s JOIN tool t ON t.id = s.tool_id
            WHERE s.area_id = ?
            ORDER BY CASE s.role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, s.grade_lo, t.name""",
-        (area_id,)).fetchall()
+        (area_id,))]
+    for s in screeners:  # NCII screening-chart rows for this tool at this screener's grades (Q11)
+        s["ncii"] = con.execute(
+            """SELECT measure, grade, ca_fall, ca_winter, ca_spring, ca_fall_d, ca_winter_d, ca_spring_d
+               FROM ncii_screening WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade""",
+            (s["tool_id"], s["grade_lo"], s["grade_hi"])).fetchall()
     rows = con.execute(Q5_ALL_TEACHERS, (area_id,)).fetchall()
     examples = con.execute(
         """SELECT e.student_key, e.protocol_id, e.timeline, pr.name AS profile, p.tier
@@ -293,6 +324,35 @@ def area(area_id):
         area=a, cores=cores, screeners=screeners, examples=examples, all_areas=all_areas(con),
         by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label,
     )
+
+
+@app.route("/tool/<tool_id>")
+def tool(tool_id):
+    con = db()
+    t = con.execute("SELECT * FROM tool WHERE id = ?", (tool_id,)).fetchone()
+    if t is None:
+        abort(404)
+    licenses = con.execute(
+        "SELECT grade_lo, grade_hi, note FROM tool_license WHERE tool_id = ? ORDER BY grade_lo", (tool_id,)).fetchall()
+    # where the tool is used (Q7): cores, screeners, and the three protocol columns
+    uses = con.execute(
+        """SELECT 'core' AS role, c.area_id, c.role AS detail, NULL AS teacher, NULL AS tier, NULL AS profile
+           FROM area_core c WHERE c.tool_id = :t
+           UNION ALL
+           SELECT 'screener: ' || replace(s.role, '_', ' '), s.area_id,
+                  grade_span(s.grade_lo, s.grade_hi) || coalesce(', ' || s.windows, ''), NULL, NULL, NULL
+           FROM area_screener s WHERE s.tool_id = :t
+           UNION ALL
+           SELECT CASE WHEN p.placement_tool_id = :t THEN 'placement test'
+                       WHEN p.program_id = :t THEN 'program' ELSE 'PM tool' END,
+                  p.area_id, p.id, p.teacher, p.tier, pr.name
+           FROM protocol p JOIN profile pr ON pr.id = p.profile_id
+           WHERE :t IN (p.placement_tool_id, p.program_id, p.pm_tool_id)
+           ORDER BY 2, 4, 5, 1""", {"t": tool_id}).fetchall()
+    ncii = con.execute(
+        "SELECT * FROM ncii_screening WHERE tool_id = ? ORDER BY measure, grade", (tool_id,)).fetchall()
+    return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii,
+                           all_areas=all_areas(con), tier_label=tier_label)
 
 
 # ---------------------------------------------------------------- edit form

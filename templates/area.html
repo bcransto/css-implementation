@@ -11,16 +11,19 @@
 <section class="setup">
   <div>
     <h3>Core</h3>
-    {% if cores %}<ul>{% for c in cores %}<li>{{ c.name }}{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></li>{% endfor %}</ul>
+    {% if cores %}<ul>{% for c in cores %}<li><a href="{{ url_for('tool', tool_id=c.tool_id) }}">{{ c.name }}</a>{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></li>{% endfor %}</ul>
     {% else %}<p class="muted">No core program named in any district document.</p>{% endif %}
   </div>
   <div>
     <h3>Screening</h3>
     <table class="mini">
-      <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag</th><th></th></tr></thead>
+      <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
       <tbody>{% for s in screeners %}
-      <tr><td>{{ s.name }}</td><td>{{ s.grade_lo|grade_span(s.grade_hi) }}</td><td>{{ s.windows or '' }}</td>
-          <td>{{ s.role.replace('_', ' ') }}</td><td>{{ s.cut or '' }}</td><td><span class="tag {{ s.status }}">{{ s.status }}</span></td></tr>
+      <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a></td><td>{{ s.grade_lo|grade_span(s.grade_hi) }}</td><td>{{ s.windows or '' }}</td>
+          <td>{{ s.role.replace('_', ' ') }}</td><td>{{ s.cut or '' }}</td><td><span class="tag {{ s.status }}">{{ s.status }}</span></td>
+          <td class="ncii-cell">{% if s.ncii|length == 1 %}{% set n = s.ncii[0] %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}" title="{{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}">{{ bubble(n.ca_fall, n.ca_fall_d) }}{{ bubble(n.ca_winter, n.ca_winter_d) }}{{ bubble(n.ca_spring, n.ca_spring_d) }}</a>
+              {% elif s.ncii %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.ncii|length }} rows</a>
+              {% else %}<span class="empty" title="not on the NCII screening chart, or not entered">—</span>{% endif %}</td></tr>
       {% endfor %}</tbody>
     </table>
   </div>
@@ -60,7 +63,7 @@
         <th class="field">{{ label }}</th>
         {% for c in cols %}{% set v = c.cells[col] %}
         <td class="status-{{ c.status }}" {% if v.note %}title="{{ v.note }}"{% endif %}>
-          {% if v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
+          {% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
         </td>
         {% endfor %}
       </tr>

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ tool.name }} · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>{{ tool.name }}
+  <small>{{ tool.vendor or '' }}{% if tool.minutes %} · {{ tool.minutes }} min{% endif %} · <code>{{ tool.id }}</code></small></h1>
+{% if tool.notes %}<p class="lede">{{ tool.notes }}{% if tool.url %} <a href="{{ tool.url }}">{{ tool.url }}</a>{% endif %}</p>
+{% elif tool.url %}<p class="lede"><a href="{{ tool.url }}">{{ tool.url }}</a></p>{% endif %}
+
+<section class="setup">
+  <div>
+    <h3>Licensed for</h3>
+    {% if licenses %}<ul>{% for l in licenses %}<li>grades {{ l.grade_lo|grade_span(l.grade_hi) }}{% if l.note %} <span class="muted">({{ l.note }})</span>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No license row: not owned.</p>{% endif %}
+  </div>
+  <div>
+    <h3>Used in</h3>
+    {% if uses %}
+    <table class="mini">
+      <thead><tr><th>Area</th><th>As</th><th>Row</th></tr></thead>
+      <tbody>{% for u in uses %}
+      <tr><td><a href="{{ url_for('area', area_id=u.area_id) }}">{{ u.area_id }}</a></td>
+          <td>{{ u.role }}</td>
+          <td>{% if u.profile is not none %}{{ tier_label(u.tier) }}, {{ u.profile }}{% if u.teacher != '-' %} <span class="pill">observed: {{ u.teacher }}</span>{% endif %}
+              {% elif u.detail %}<span class="muted">{{ u.detail }}</span>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">Not referenced by any area or protocol.</p>{% endif %}
+  </div>
+</section>
+
+<h2>NCII academic screening tools chart
+  <small>one row per measure and grade, as <a href="{{ NCII_SCREENING_URL }}">the chart</a> lists it</small></h2>
+{% if ncii %}
+<div class="scroll">
+<table class="ncii">
+  <thead>
+    <tr><th rowspan="2">Measure</th><th rowspan="2">Grade</th>
+        <th colspan="3">Classification accuracy</th><th colspan="4">Technical standards</th><th colspan="5">Usability features</th>
+        <th rowspan="2">As of</th></tr>
+    <tr><th>Fall</th><th>Winter</th><th>Spring</th>
+        <th>Reliability</th><th>Validity</th><th>Sample</th><th>Bias analysis</th>
+        <th>Admin format</th><th>Time</th><th>Scoring</th><th>Decision rules</th><th>Multiple rules</th></tr>
+  </thead>
+  <tbody>{% for n in ncii %}
+    <tr><td>{% if n.url %}<a href="{{ n.url }}">{{ n.measure }}</a>{% else %}{{ n.measure }}{% endif %}</td>
+        <td>{{ n.grade|grade_span(n.grade) }}</td>
+        <td class="c">{{ bubble(n.ca_fall, n.ca_fall_d) }}</td>
+        <td class="c">{{ bubble(n.ca_winter, n.ca_winter_d) }}</td>
+        <td class="c">{{ bubble(n.ca_spring, n.ca_spring_d) }}</td>
+        <td class="c">{{ bubble(n.reliability) }}</td>
+        <td class="c">{{ bubble(n.validity) }}</td>
+        <td class="c">{{ bubble(n.sample_rep) }}</td>
+        <td>{{ n.bias_analysis or '' }}</td>
+        <td>{{ n.admin_format or '' }}</td>
+        <td>{{ n.admin_time or '' }}</td>
+        <td>{{ n.scoring_format or '' }}</td>
+        <td>{{ n.decision_rules or '' }}</td>
+        <td>{{ n.multi_rules_evidence or '' }}</td>
+        <td class="muted">{{ n.as_of or '' }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
+<p class="legend">{% for key, (sym, label) in NCII_RATINGS.items() %}<span class="bubble {{ key }}">{{ sym }}</span> {{ label }} &nbsp; {% endfor %}
+  <span class="bubble">●<sup>d</sup></span> disaggregated data available &nbsp; blank: not entered</p>
+{% else %}
+<p class="muted">No NCII screening ratings recorded. A tool with no rows here is not on the chart, or has not been entered yet.</p>
+{% endif %}
+{% endblock %}

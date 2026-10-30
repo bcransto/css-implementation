@@ -79,3 +79,13 @@ ORDER BY p.basis DESC, p.teacher;
 -- Q10 How many distinct ways an area's teachers sort students (observed profile sets).
 SELECT area_id, teacher, group_concat(name, ' / ') AS categories
 FROM profile WHERE basis = 'observed' GROUP BY area_id, teacher;
+
+-- Q11 NCII screening ratings for an area's screeners, at the area's grades.
+--     No ncii_screening row = the tool is not on NCII's academic screening chart.
+SELECT s.tool_id, t.name, n.measure, n.grade, n.ca_fall, n.ca_winter, n.ca_spring,
+       n.reliability, n.validity, n.sample_rep, n.bias_analysis
+FROM area_screener s
+JOIN tool t ON t.id = s.tool_id
+LEFT JOIN ncii_screening n ON n.tool_id = s.tool_id AND n.grade BETWEEN s.grade_lo AND s.grade_hi
+WHERE s.area_id = :area
+ORDER BY t.name, n.measure, n.grade;
