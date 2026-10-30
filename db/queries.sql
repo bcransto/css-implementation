@@ -89,3 +89,15 @@ JOIN tool t ON t.id = s.tool_id
 LEFT JOIN ncii_screening n ON n.tool_id = s.tool_id AND n.grade BETWEEN s.grade_lo AND s.grade_hi
 WHERE s.area_id = :area
 ORDER BY t.name, n.measure, n.grade;
+
+-- Q12 NCII progress monitoring ratings for the PM tools an area's protocols use, at the area's grades.
+--     No ncii_pm row = the tool is not on NCII's academic progress monitoring chart.
+SELECT DISTINCT p.pm_tool_id, t.name, n.measure, n.grade, n.measure_type,
+       n.reliability, n.validity, n.slope_reliability, n.slope_validity, n.alt_forms,
+       n.rules_goals, n.rules_instruction
+FROM protocol p
+JOIN area a ON a.id = p.area_id
+JOIN tool t ON t.id = p.pm_tool_id
+LEFT JOIN ncii_pm n ON n.tool_id = p.pm_tool_id AND n.grade BETWEEN a.grade_lo AND a.grade_hi
+WHERE p.area_id = :area
+ORDER BY t.name, n.measure, n.grade, n.measure_type;

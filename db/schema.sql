@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.4
+-- MTSS tier-definition schema, v0.5
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -12,6 +12,7 @@
 --   area.teachers dropped; teachers appear only on scoped rows.
 -- v0.4: ncii_screening, one row per row of NCII's academic screening tools chart.
 --   No row for a tool = not on the chart. PM and intervention charts to follow.
+-- v0.5: ncii_pm, one row per row of NCII's academic progress monitoring tools chart.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -68,6 +69,34 @@ CREATE TABLE ncii_screening (
   url         TEXT,                       -- NCII tool detail page
   as_of       TEXT,                       -- YYYY-MM the row was copied from the chart
   PRIMARY KEY (tool_id, measure, grade)
+);
+
+-- NCII academic progress monitoring tools chart, one row per chart row (tool x measure x grade x type).
+-- No row for a tool = not on the chart. Same rating vocabulary as ncii_screening; the chart's
+-- legend lists the "d" marker but no PM cell carries one, so there are no *_d flags here.
+CREATE TABLE ncii_pm (
+  tool_id       TEXT NOT NULL REFERENCES tool(id),
+  measure       TEXT NOT NULL,            -- NCII "Area": 'Computation', 'Maze', 'Oral Reading Fluency'
+  grade         INTEGER NOT NULL,         -- K = 0; one grade per row, as on the chart
+  measure_type  TEXT NOT NULL,            -- 'End Year Goal' (general outcome) | 'Short Term Skill' (mastery)
+  -- performance level standards
+  reliability   TEXT CHECK (reliability IN ('convincing','partial','unconvincing','unavailable')),
+  validity      TEXT CHECK (validity IN ('convincing','partial','unconvincing','unavailable')),
+  bias_analysis TEXT,                     -- 'Provided' | 'Not Provided' (chart text, not a bubble)
+  -- growth standards
+  slope_reliability TEXT CHECK (slope_reliability IN ('convincing','partial','unconvincing','unavailable')),  -- Sensitivity: Reliability of Slope
+  slope_validity    TEXT CHECK (slope_validity IN ('convincing','partial','unconvincing','unavailable')),     -- Sensitivity: Validity of Slope
+  alt_forms         TEXT CHECK (alt_forms IN ('convincing','partial','unconvincing','unavailable')),          -- Alternate Forms
+  rules_goals       TEXT CHECK (rules_goals IN ('convincing','partial','unconvincing','unavailable')),        -- Decision Rules: Setting & Revising Goals
+  rules_instruction TEXT CHECK (rules_instruction IN ('convincing','partial','unconvincing','unavailable')),  -- Decision Rules: Changing Instruction
+  -- usability
+  admin_format  TEXT,                     -- 'Individual', 'Group', 'Computer-administered', 'Other'
+  admin_time    TEXT,                     -- Admin & Scoring Time, as written on the chart
+  scoring_format TEXT,                    -- 'Manual', 'Automatic', 'Other'
+  roi_eoy       TEXT,                     -- ROI & EOY Benchmarks, as written ('ROI & EOY Benchmarks Available')
+  url           TEXT,                     -- NCII tool detail page
+  as_of         TEXT,                     -- YYYY-MM the row was copied from the chart
+  PRIMARY KEY (tool_id, measure, grade, measure_type)
 );
 
 CREATE TABLE area_core (

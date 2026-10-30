@@ -4,7 +4,7 @@ Routes:
   /                      every area, with its core, screeners and row counts
   /area/<id>             Q5 for one area: one table per tier, one column per profile;
                          defined rows first, then each teacher's observed rows
-  /tool/<id>             one tool: licenses, where it is used, NCII screening-chart ratings
+  /tool/<id>             one tool: licenses, where it is used, NCII screening and PM chart ratings
   /login, /logout        shared committee password (env CSS_PASSWORD)
   /area/<id>/new         create a protocol row            (login required)
   /protocol/<id>/edit    edit a protocol row              (login required)
@@ -146,6 +146,7 @@ NCII_RATINGS = OrderedDict([
     ("unavailable", ("–", "Data unavailable")),
 ])
 NCII_SCREENING_URL = "https://charts.intensiveintervention.org/ascreening"
+NCII_PM_URL = "https://charts.intensiveintervention.org/aprogressmonitoring"
 
 
 def bubble(rating, disaggregated=0):
@@ -160,6 +161,7 @@ def bubble(rating, disaggregated=0):
 app.jinja_env.globals["bubble"] = bubble
 app.jinja_env.globals["NCII_RATINGS"] = NCII_RATINGS
 app.jinja_env.globals["NCII_SCREENING_URL"] = NCII_SCREENING_URL
+app.jinja_env.globals["NCII_PM_URL"] = NCII_PM_URL
 
 
 # ---------------------------------------------------------------- auth
@@ -314,6 +316,13 @@ def area(area_id):
                FROM ncii_screening WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade""",
             (s["tool_id"], s["grade_lo"], s["grade_hi"])).fetchall()
     rows = con.execute(Q5_ALL_TEACHERS, (area_id,)).fetchall()
+    # NCII progress-monitoring rows for each PM tool the protocols use, at this area's grades (Q12)
+    pm_ncii = {}
+    for tid in {r["pm_tool_id"] for r in rows if r["pm_tool_id"]}:
+        pm_ncii[tid] = con.execute(
+            """SELECT measure, grade, measure_type, slope_reliability, slope_validity, alt_forms
+               FROM ncii_pm WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade, measure_type""",
+            (tid, a["grade_lo"], a["grade_hi"])).fetchall()
     examples = con.execute(
         """SELECT e.student_key, e.protocol_id, e.timeline, pr.name AS profile, p.tier
            FROM student_example e JOIN protocol p ON p.id = e.protocol_id
@@ -322,7 +331,7 @@ def area(area_id):
     return render_template(
         "area.html",
         area=a, cores=cores, screeners=screeners, examples=examples, all_areas=all_areas(con),
-        by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label,
+        by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label, pm_ncii=pm_ncii,
     )
 
 
@@ -351,7 +360,9 @@ def tool(tool_id):
            ORDER BY 2, 4, 5, 1""", {"t": tool_id}).fetchall()
     ncii = con.execute(
         "SELECT * FROM ncii_screening WHERE tool_id = ? ORDER BY measure, grade", (tool_id,)).fetchall()
-    return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii,
+    ncii_pm = con.execute(
+        "SELECT * FROM ncii_pm WHERE tool_id = ? ORDER BY measure, grade, measure_type", (tool_id,)).fetchall()
+    return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
                            all_areas=all_areas(con), tier_label=tier_label)
 
 

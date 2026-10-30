@@ -64,6 +64,9 @@
         {% for c in cols %}{% set v = c.cells[col] %}
         <td class="status-{{ c.status }}" {% if v.note %}title="{{ v.note }}"{% endif %}>
           {% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
+          {% if col == 'pm_tool' and v.tool_id and pm_ncii.get(v.tool_id) %}{% set rows = pm_ncii[v.tool_id] %}
+          <div class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}, {{ n.measure_type }}: slope reliability, slope validity, alternate forms">NCII {{ bubble(n.slope_reliability) }}{{ bubble(n.slope_validity) }}{{ bubble(n.alt_forms) }}</a>
+            {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII rows</a>{% endif %}</div>{% endif %}
         </td>
         {% endfor %}
       </tr>
