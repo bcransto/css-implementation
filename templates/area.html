@@ -3,38 +3,102 @@
 {% block nav %}
   {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}" {% if a.id == area.id %}class="here"{% endif %}>{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
 {% endblock %}
-{% block body %}
-<h1>{{ area.subject|capitalize }}, grade{% if area.grade_lo != area.grade_hi %}s{% endif %} {{ area.grade_lo|grade_span(area.grade_hi) }}
-  {% if area.has_flex %}<small>FLEX block</small>{% endif %}
-  {% if logged_in() %}<a class="btn" href="{{ url_for('protocol_new', area_id=area.id) }}">+ Add row</a>{% endif %}</h1>
 
-<section class="setup">
-  <div>
-    <h3>Core</h3>
-    {% if cores %}<ul>{% for c in cores %}<li><a href="{{ url_for('tool', tool_id=c.tool_id) }}">{{ c.name }}</a>{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></li>{% endfor %}</ul>
-    {% else %}<p class="muted">No core program named in any district document.</p>{% endif %}
-  </div>
-  <div>
-    <h3>Screening</h3>
-    <table class="mini">
-      <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
-      <tbody>{% for s in screeners %}
-      <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a></td><td>{{ s.grade_lo|grade_span(s.grade_hi) }}</td><td>{{ s.windows or '' }}</td>
-          <td>{{ s.role.replace('_', ' ') }}</td><td>{{ s.cut or '' }}</td><td><span class="tag {{ s.status }}">{{ s.status }}</span></td>
-          <td class="ncii-cell">{% if s.ncii|length == 1 %}{% set n = s.ncii[0] %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}" title="{{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}">{{ bubble(n.ca_fall, n.ca_fall_d) }}{{ bubble(n.ca_winter, n.ca_winter_d) }}{{ bubble(n.ca_spring, n.ca_spring_d) }}</a>
-              {% elif s.ncii %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.ncii|length }} rows</a>
-              {% else %}<span class="empty" title="not on the NCII screening chart, or not entered">—</span>{% endif %}</td></tr>
-      {% endfor %}</tbody>
-    </table>
-  </div>
-</section>
+{# ---- helpers ------------------------------------------------------------------------------ #}
+{% macro status_bits(c) -%}
+  <span class="tag {{ c.status }}">{{ c.status }}</span>
+  {%- if c.basis == 'observed' %} <span class="pill">observed{% if c.as_of %} {{ c.as_of }}{% endif %}</span>{% endif %}
+{%- endmacro %}
 
-{% for teacher, tiers in by_teacher.items() %}
-  {% if teacher != '-' %}
-    <h2 class="observed-head">Observed: {{ teacher }}
-      <small>what this teacher does now, not the area's rule</small></h2>
+{% macro value(v) -%}
+  {% if v.warn %}<span class="warn" title="{{ v.warn }}">▲</span> {% endif -%}
+  {% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
+{%- endmacro %}
+
+{% macro pm_sub(v) -%}
+  {% if v.tool_id and pm_ncii.get(v.tool_id) %}{% set rows = pm_ncii[v.tool_id] %}
+  <span class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}, {{ n.measure_type }}: slope reliability, slope validity, alternate forms">NCII {{ bubble(n.slope_reliability) }}{{ bubble(n.slope_validity) }}{{ bubble(n.alt_forms) }}</a>
+    {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII rows</a>{% endif %}</span>{% endif %}
+{%- endmacro %}
+
+{% macro prog_sub(v) -%}
+  {% if v.tool_id and prog_ncii.get(v.tool_id) %}{% set rows = prog_ncii[v.tool_id] %}
+  <span class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.study }}: design, targeted measures, broader measures; ES {{ n.es_targeted or '–' }} / {{ n.es_broader or '–' }}">NCII {{ bubble(n.design) }}{{ bubble(n.targeted_measures) }}{{ bubble(n.broader_measures) }}</a>
+    {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII studies</a>{% endif %}</span>{% endif %}
+{%- endmacro %}
+
+{# ---- Tier 1: core + screening + progress monitoring ------------------------------------------
+   col is the (single, whole-class) protocol row or none; show_area draws the area-level core and
+   screener tables, which have no teacher, so only the defined view shows them. #}
+{% macro tier1(col, teacher, show_area) %}
+  {% set st = col.status if col else 'none' %}
+  <h2 class="tier">Tier 1{% if teacher != '-' %} <small>({{ teacher }})</small>{% endif %}
+    {% if logged_in() and col %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=col.id) }}">edit</a>{% endif %}</h2>
+  {% if col %}
+  <p class="rowline">{{ status_bits(col) }}
+    {% if col.status_note %}<span>{{ col.status_note }}</span>{% endif %}
+    {% if col.evidence %}<span>evidence: {{ col.evidence }}</span>{% endif %}</p>
   {% endif %}
-  {% for tier, cols in tiers.items() %}
+  <table class="grid t1 {% if teacher != '-' %}observed{% endif %}">
+    <tr>
+      <th class="field">Core</th>
+      <td class="status-{{ st }}">
+        {% if show_area and cores %}
+          {% for c in cores %}<div><a href="{{ url_for('tool', tool_id=c.tool_id) }}">{{ c.name }}</a>{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></div>{% endfor %}
+        {% elif col and col.cells.program.text %}
+          <div>{{ value(col.cells.program) }} {{ prog_sub(col.cells.program) }}</div>
+        {% else %}<span class="empty">{% if show_area %}no core program named in any district document{% else %}—{% endif %}</span>{% endif %}
+        {% if col and (col.cells.deliverer_role.text or col.cells.dosage.text) %}
+          <div class="sub">{{ col.cells.deliverer_role.text or '' }}{% if col.cells.deliverer_role.text and col.cells.dosage.text %} · {% endif %}{% if col.cells.dosage.text %}{{ value(col.cells.dosage) }}{% endif %}</div>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th class="field">Screening</th>
+      <td class="status-{{ st }} nest">
+        {% if show_area and screeners %}
+        <table class="mini screen">
+          <thead><tr><th>Tool</th><th>Rule</th><th>When</th><th>Grades</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
+          <tbody>{% for s in screeners %}
+          <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a>{% if s.role != 'screen' %} <span class="muted">({{ s.role.replace('_', ' ') }})</span>{% endif %}</td>
+              <td>{% if s.cut %}{{ s.cut }}{% else %}<span class="empty">—</span>{% endif %}</td>
+              <td>{% if s.windows %}{{ s.windows }}{% else %}<span class="empty">—</span>{% endif %}</td>
+              <td class="muted">{{ s.grade_lo|grade_span(s.grade_hi) }}</td>
+              <td><span class="tag {{ s.status }}">{{ s.status }}</span></td>
+              <td class="ncii-cell">{% if s.ncii|length == 1 %}{% set n = s.ncii[0] %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}" title="{{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}">{{ bubble(n.ca_fall, n.ca_fall_d) }}{{ bubble(n.ca_winter, n.ca_winter_d) }}{{ bubble(n.ca_spring, n.ca_spring_d) }}</a>
+                  {% elif s.ncii %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.ncii|length }} rows</a>
+                  {% else %}<span class="empty" title="not on the NCII screening chart, or not entered">—</span>{% endif %}</td></tr>
+          {% endfor %}</tbody>
+        </table>
+        {% endif %}
+        {% if col and not show_area and col.cells.placement.text %}
+          <div class="line"><span class="lbl">Tool</span> {{ value(col.cells.placement) }}</div>
+        {% endif %}
+        {% if col and col.cells.entry_rule.text %}
+          <div class="line"><span class="lbl">Entry rule</span> {{ col.cells.entry_rule.text }}</div>
+        {% elif not (show_area and screeners) and not (col and not show_area and col.cells.placement.text) %}
+          <div class="line"><span class="empty">—</span></div>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th class="field">Progress monitoring</th>
+      <td class="status-{{ st }}">
+        {% if col and (col.cells.pm_tool.text or col.cells.pm_metric.text or col.cells.pm_rule.text or col.cells.review_rule.text) %}
+          <div>{{ value(col.cells.pm_tool) }}{% if col.cells.pm_metric.text %} <span class="muted">· {{ col.cells.pm_metric.text }}</span>{% endif %} {{ pm_sub(col.cells.pm_tool) }}</div>
+          {% if col.cells.pm_rule.text %}<div class="sub">{{ col.cells.pm_rule.text }}</div>{% endif %}
+          {% if col.cells.review_rule.text %}<div class="sub"><span class="lbl">Review</span> {{ col.cells.review_rule.text }}</div>{% endif %}
+        {% else %}<span class="empty">—</span>{% endif %}
+      </td>
+    </tr>
+    {% if col and col.cells.citations.text %}
+    <tr><th class="field">Citations</th><td class="status-{{ st }} small">{{ col.cells.citations.text }}</td></tr>
+    {% endif %}
+  </table>
+{% endmacro %}
+
+{# ---- Tiers 2+ (and 'Outside the tiers'): one column per profile ------------------------------- #}
+{% macro tier_table(tier, cols, teacher) %}
   <h2 class="tier">{{ tier_label(tier) }}{% if teacher != '-' %} <small>({{ teacher }})</small>{% endif %}</h2>
   <div class="scroll">
   <table class="grid {% if teacher != '-' %}observed{% endif %}">
@@ -43,12 +107,8 @@
         <th class="field"></th>
         {% for c in cols %}
         <th class="status-{{ c.status }}">
-          <div class="profile">{{ c.profile }}
+          <div class="profile">{{ c.profile }} {{ status_bits(c) }}
             {% if logged_in() %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=c.id) }}">edit</a>{% endif %}</div>
-          <span class="tag {{ c.status }}">{{ c.status }}</span>
-          {% if c.basis == 'observed' %}<span class="pill">observed{% if c.as_of %} {{ c.as_of }}{% endif %}</span>{% endif %}
-          {% if c.status_note %}<div class="note">{{ c.status_note }}</div>{% endif %}
-          {% if c.evidence %}<div class="note">evidence: {{ c.evidence }}</div>{% endif %}
         </th>
         {% endfor %}
       </tr>
@@ -63,13 +123,9 @@
         <th class="field">{{ label }}</th>
         {% for c in cols %}{% set v = c.cells[col] %}
         <td class="status-{{ c.status }}" {% if v.note %}title="{{ v.note }}"{% endif %}>
-          {% if v.warn %}<span class="warn" title="{{ v.warn }}">▲</span> {% endif %}{% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
-          {% if col == 'pm_tool' and v.tool_id and pm_ncii.get(v.tool_id) %}{% set rows = pm_ncii[v.tool_id] %}
-          <div class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}, {{ n.measure_type }}: slope reliability, slope validity, alternate forms">NCII {{ bubble(n.slope_reliability) }}{{ bubble(n.slope_validity) }}{{ bubble(n.alt_forms) }}</a>
-            {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII rows</a>{% endif %}</div>{% endif %}
-          {% if col == 'program' and v.tool_id and prog_ncii.get(v.tool_id) %}{% set rows = prog_ncii[v.tool_id] %}
-          <div class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.study }}: design, targeted measures, broader measures; ES {{ n.es_targeted or '–' }} / {{ n.es_broader or '–' }}">NCII {{ bubble(n.design) }}{{ bubble(n.targeted_measures) }}{{ bubble(n.broader_measures) }}</a>
-            {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII studies</a>{% endif %}</div>{% endif %}
+          {{ value(v) }}
+          {% if col == 'pm_tool' %}<div>{{ pm_sub(v) }}</div>{% endif %}
+          {% if col == 'program' %}<div>{{ prog_sub(v) }}</div>{% endif %}
         </td>
         {% endfor %}
       </tr>
@@ -77,8 +133,50 @@
     </tbody>
   </table>
   </div>
-  {% endfor %}
-{% endfor %}
+  {% set noted = cols|selectattr('status_note')|list + cols|rejectattr('status_note')|selectattr('evidence')|list %}
+  {% if noted %}
+  <p class="footnotes">{% for c in cols if c.status_note or c.evidence %}<span><b>{{ c.profile }}</b>: {{ c.status_note or '' }}{% if c.status_note and c.evidence %}; {% endif %}{% if c.evidence %}evidence: {{ c.evidence }}{% endif %}</span>{% endfor %}</p>
+  {% endif %}
+{% endmacro %}
+
+{% block body %}
+{% set observed_teachers = by_teacher.keys()|reject('equalto', '-')|list %}
+{% set defined = by_teacher.get('-', {}) %}
+
+<h1>{{ area.subject|capitalize }}, grade{% if area.grade_lo != area.grade_hi %}s{% endif %} {{ area.grade_lo|grade_span(area.grade_hi) }}
+  {% if area.has_flex %}<small>FLEX block</small>{% endif %}
+  {% if logged_in() %}<a class="btn" href="{{ url_for('protocol_new', area_id=area.id) }}">+ Add row</a>{% endif %}</h1>
+
+<div class="views" data-view="{{ 'observed' if observed_teachers else 'defined' }}">
+  <nav class="tabs">
+    <a href="#observed" data-view="observed" {% if observed_teachers %}class="on"{% endif %}>Observed
+      <small>{% if observed_teachers %}{{ observed_teachers|join(', ') }}{% else %}none yet{% endif %}</small></a>
+    <a href="#defined" data-view="defined" {% if not observed_teachers %}class="on"{% endif %}>Defined
+      <small>the area's rule</small></a>
+  </nav>
+
+  <section class="view view-observed">
+    {% if not observed_teachers %}
+      <p class="muted">No teacher's practice has been recorded for this area yet.</p>
+    {% endif %}
+    {% for teacher in observed_teachers %}{% set tiers = by_teacher[teacher] %}
+      {% if observed_teachers|length > 1 %}<h2 class="observed-head">{{ teacher }} <small>what this teacher does now, not the area's rule</small></h2>{% endif %}
+      {% for tier, cols in tiers.items() %}
+        {% if tier == 1 and cols|length == 1 %}{{ tier1(cols[0], teacher, False) }}
+        {% else %}{{ tier_table(tier, cols, teacher) }}{% endif %}
+      {% endfor %}
+    {% endfor %}
+  </section>
+
+  <section class="view view-defined">
+    {% if 1 in defined and defined[1]|length == 1 %}{{ tier1(defined[1][0], '-', True) }}
+    {% elif 1 in defined %}{{ tier_table(1, defined[1], '-') }}
+    {% elif cores or screeners %}{{ tier1(none, '-', True) }}
+    {% endif %}
+    {% for tier, cols in defined.items() if tier != 1 %}{{ tier_table(tier, cols, '-') }}{% endfor %}
+    {% if not defined and not cores and not screeners %}<p class="muted">Nothing defined for this area yet.</p>{% endif %}
+  </section>
+</div>
 
 {% if examples %}
 <h2>Illustrative students <small>fabricated for the examples; never real students</small></h2>
@@ -89,4 +187,22 @@
 {% endfor %}
 </dl>
 {% endif %}
+
+<script>
+(function () {
+  var root = document.querySelector('.views'); if (!root) return;
+  var tabs = root.querySelectorAll('nav.tabs a');
+  function show(v) {
+    root.dataset.view = v;
+    tabs.forEach(function (a) { a.classList.toggle('on', a.dataset.view === v); });
+  }
+  var h = location.hash.slice(1);
+  if (h === 'observed' || h === 'defined') show(h);
+  tabs.forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault(); show(a.dataset.view); history.replaceState(null, '', '#' + a.dataset.view);
+    });
+  });
+})();
+</script>
 {% endblock %}
