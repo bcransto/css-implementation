@@ -70,6 +70,11 @@ dl.design { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 
 dl.design dt { color: var(--muted); } dl.design dd { margin: 0; }
 ul.evidence { margin: 0; padding-left: 18px; font-size: 14px; } ul.evidence .note { font-size: 12px; }
 .warn { color: var(--proposed); cursor: help; font-size: 12px; }
+.dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 24px; }
+.dims ul { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.dims li { padding: 2px 0; } .dims li.off { color: var(--muted); } .dims li.on { font-weight: 600; }
+.dims .box { display: inline-block; width: 1.2em; }
+@media (max-width: 800px) { .dims { grid-template-columns: 1fr; } }
 @media (max-width: 800px) { section.setup.three { grid-template-columns: 1fr; } }
 dl.examples dt { font-weight: 600; margin-top: 10px; }
 dl.examples dd { margin: 2px 0 0; max-width: 100ch; color: #333; }

@@ -418,8 +418,18 @@ def tool(tool_id):
         "SELECT * FROM ncii_intervention WHERE tool_id = ? ORDER BY study", (tool_id,)).fetchall()
     evidence = con.execute(
         "SELECT * FROM tool_evidence WHERE tool_id = ? ORDER BY source, finding", (tool_id,)).fetchall()
+    # NCII's dimension list with this tool's selections marked; grouped by subject in NCII's order
+    dims = con.execute(
+        """SELECT d.subject, d.name, (td.tool_id IS NOT NULL) AS selected, td.source
+           FROM dimension d LEFT JOIN tool_dimension td ON td.dimension_id = d.id AND td.tool_id = ?
+           ORDER BY d.sort""", (tool_id,)).fetchall()
+    dimensions = OrderedDict()
+    for d in dims:
+        dimensions.setdefault(d["subject"], []).append(d)
+    has_dims = any(d["selected"] for d in dims)
     return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
-                           ncii_iv=ncii_iv, evidence=evidence, all_areas=all_areas(con), tier_label=tier_label)
+                           ncii_iv=ncii_iv, evidence=evidence, dimensions=dimensions, has_dims=has_dims,
+                           all_areas=all_areas(con), tier_label=tier_label)
 
 
 # ---------------------------------------------------------------- edit form

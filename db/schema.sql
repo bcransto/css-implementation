@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.8
+-- MTSS tier-definition schema, v0.9
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -17,6 +17,7 @@
 -- v0.7: ncii_screening.sample_rep is chart text, not a rating; area.building dropped.
 -- v0.8: tool carries the publisher's design (minimum dose, group size, deliverer, training, grades),
 --   named after NCII's Intensity columns; tool_evidence records what each reviewer found, or did not.
+-- v0.9: dimension (NCII's 17 academic dimensions) and tool_dimension (which ones a tool assesses).
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -58,6 +59,24 @@ CREATE TABLE tool_evidence (
   notes       TEXT,
   as_of       TEXT,                       -- YYYY-MM the source was checked
   PRIMARY KEY (tool_id, source, finding)
+);
+
+-- NCII's academic dimensions ("What dimensions does the tool assess?" on a tool's detail page),
+-- the full list, so a tool page can show every dimension and mark the ones the tool targets.
+CREATE TABLE dimension (
+  id          TEXT PRIMARY KEY,           -- 'r-decoding', 'm-fractions'
+  subject     TEXT NOT NULL CHECK (subject IN ('reading','writing','math')),
+  name        TEXT NOT NULL,              -- as NCII prints it
+  sort        INTEGER NOT NULL            -- NCII's order within the list
+);
+
+-- the dimensions a tool assesses or targets; absence = not selected on NCII's page (or not entered)
+CREATE TABLE tool_dimension (
+  tool_id     TEXT NOT NULL REFERENCES tool(id),
+  dimension_id TEXT NOT NULL REFERENCES dimension(id),
+  source      TEXT,                       -- 'NCII PM detail page', 'publisher'
+  as_of       TEXT,
+  PRIMARY KEY (tool_id, dimension_id)
 );
 
 -- which grades a tool is licensed/owned for; absence of a row = not owned
@@ -250,3 +269,23 @@ CREATE TABLE student_example (
 -- sentinels: whole-class rows use profile '-'
 INSERT INTO area VALUES ('-', '-', 0, 0, 0);
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');
+
+-- NCII's academic dimension list (tool detail pages). NCII's page misspells "Writting"; corrected here.
+INSERT INTO dimension VALUES
+('r-global','reading','Global Indicator of Reading Competence',1),
+('r-listening','reading','Listening Comprehension',2),
+('r-vocab','reading','Vocabulary',3),
+('r-pa','reading','Phonemic Awareness',4),
+('r-decoding','reading','Decoding',5),
+('r-passage','reading','Passage Reading',6),
+('r-wordid','reading','Word Identification',7),
+('r-comp','reading','Comprehension',8),
+('w-spelling','writing','Global Indicator of Spelling Competence',9),
+('w-expression','writing','Global Indicator of Written Expression Competence',10),
+('m-global','math','Global Indicator of Mathematics Competence',11),
+('m-early','math','Early Numeracy',12),
+('m-concepts','math','Mathematics Concepts',13),
+('m-computation','math','Mathematics Computation',14),
+('m-application','math','Mathematics Application',15),
+('m-fractions','math','Fractions',16),
+('m-algebra','math','Algebra',17);

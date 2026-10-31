@@ -6,7 +6,7 @@ Read `docs/SCHEMA.md` first. It explains the one idea (a protocol row is area ×
 
 ## Layout
 
-- `db/schema.sql` — SQLite DDL, v0.8. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4–v0.6 add `ncii_screening`, `ncii_pm` and `ncii_intervention` (NCII tools-chart ratings, one row per chart row; intervention rows are per study; no row = not on the chart). v0.8 adds the publisher's design minimums on `tool` and `tool_evidence` (what each reviewer found, including "not listed").
+- `db/schema.sql` — SQLite DDL, v0.9. Includes sentinel rows (`area '-'`, `profile '-'`). v0.3 adds `teacher`/`basis` scoping so one area can hold the defined rule plus each teacher's observed practice. v0.4–v0.6 add `ncii_screening`, `ncii_pm` and `ncii_intervention` (NCII tools-chart ratings, one row per chart row; intervention rows are per study; no row = not on the chart). v0.8 adds the publisher's design minimums on `tool` and `tool_evidence` (what each reviewer found, including "not listed"). v0.9 adds `dimension` (NCII's 17 academic dimensions) and `tool_dimension`.
 - `db/migrations/` — dated SQL files, one per change to the live database (schema changes and interview content). Apply by hand: `ssh bcransto@pinto 'sqlite3 ~/css-implementation/css.db' < db/migrations/<file>.sql`. Schema changes also go into `db/schema.sql`; content does not go into `db/seed.sql`.
 - `db/seed.sql` — four areas of real content. `proposed` rows are design proposals, `doc` rows come from district documents.
 - `db/queries.sql` — the ten queries the app must answer. Q5 is the per-area page (bound to area + teacher). Q9/Q10 are the teacher-variance view.

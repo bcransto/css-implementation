@@ -49,6 +49,17 @@
   </div>
 </section>
 
+<h2>Dimensions assessed <small>NCII's list; checked = selected on the tool's NCII page</small></h2>
+{% if has_dims %}
+<div class="dims">
+  {% for subject, items in dimensions.items() %}
+  <div><h3>{{ {'reading':'Reading','writing':'Spelling & written expression','math':'Mathematics'}[subject] }}</h3>
+    <ul>{% for d in items %}<li class="{{ 'on' if d.selected else 'off' }}"><span class="box">{{ '☑' if d.selected else '☐' }}</span> {{ d.name }}</li>{% endfor %}</ul>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p class="muted">No NCII dimensions recorded for this tool.</p>{% endif %}
+
 <h2>NCII academic screening tools chart
   <small>one row per measure and grade, as <a href="{{ NCII_SCREENING_URL }}">the chart</a> lists it</small></h2>
 {% if ncii %}

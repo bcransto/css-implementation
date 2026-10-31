@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.8
+# CSS tier-definition database — schema v0.9
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -25,6 +25,8 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 |---|---|---|
 | `area` | a subject × grade band (`math-6`, `reading-k2`) | numeric `grade_lo`/`grade_hi`, K = 0; `has_flex`. (`building` dropped in v0.7: the grade band implies it) |
 | `tool` | a named instrument or program | no `kind` column: a tool's role is whichever `protocol` column points at it. Carries the publisher's **design** (`minutes`, `min_per_week`, `min_weeks`, `design_group`/`max_group`, `interventionist`, `training`, `grade_lo`/`grade_hi`, `design_source`), named after NCII's Intensity columns |
+| `dimension` | one of NCII's 17 academic dimensions (reading 8, spelling and written expression 2, mathematics 7) | the full list, in NCII's order, so a tool page can show every dimension |
+| `tool_dimension` | one dimension a tool assesses or targets | from the tool's NCII detail page ("What dimensions does the tool assess?") or the publisher; absence = not selected |
 | `tool_evidence` | what one reviewer found about a tool | `source` ∈ ncii / wwc / essa / publisher / study / other; `finding` in the source's words. A "not listed" row is a fact with a date; no rows = nobody has looked |
 | `tool_license` | the grades a tool is owned/licensed for | **no row = not owned**. Replaces a global `owned` flag; STAR Math is 1–5, not 6–8 |
 | `ncii_screening` | one row of NCII's academic screening tools chart: tool × measure × grade | **no row = not on the chart**. Ratings are `convincing` / `partial` / `unconvincing` / `unavailable`, NULL when not yet entered; `*_d` flags are NCII's "d" marker. See "NCII ratings" |
@@ -102,6 +104,8 @@ v0.4 (2026-10-30) added `ncii_screening` and Q11, and the `/tool/<id>` page. Dec
 v0.5 (2026-10-30) added `ncii_pm` and Q12, and the PM table on the tool page. Same decisions as v0.4; measure type added to the key. Applied by `db/migrations/2026-10-30-ncii-pm.sql`.
 
 v0.6 (2026-10-30) added `ncii_intervention` and Q13, keyed by study because that is the chart's grain. Applied by `db/migrations/2026-10-30-ncii-intervention.sql`. All three NCII charts now have a table.
+
+v0.9 (2026-10-31) added `dimension` and `tool_dimension`, loaded NCII's 17 dimensions and Star Reading's four, and the checklist on the tool page. Applied by `db/migrations/2026-10-31-dimensions.sql`.
 
 v0.8 (2026-10-30) added the design fields on `tool` and `tool_evidence`, the design-vs-dose marker in the grid and edit form, and loaded Read Naturally's design from the chart. Applied by `db/migrations/2026-10-30-tool-design-evidence.sql`.
 
