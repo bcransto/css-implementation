@@ -335,7 +335,7 @@ def index():
                   (SELECT group_concat(t.name, ', ') FROM area_core c JOIN tool t ON t.id = c.tool_id
                      WHERE c.area_id = a.id) AS cores,
                   (SELECT group_concat(DISTINCT t.name) FROM area_screener s JOIN tool t ON t.id = s.tool_id
-                     WHERE s.area_id = a.id AND s.role = 'screen') AS screeners
+                     WHERE s.area_id = a.id AND s.role = 'screen' AND s.teacher = '-') AS screeners
            FROM area a WHERE a.id <> '-'
            ORDER BY a.grade_lo, a.subject"""
     ).fetchall()
@@ -360,13 +360,16 @@ def area(area_id):
     cores = con.execute(
         """SELECT t.id AS tool_id, t.name, c.role, c.status FROM area_core c JOIN tool t ON t.id = c.tool_id
            WHERE c.area_id = ? ORDER BY c.role""", (area_id,)).fetchall()
-    screeners = [dict(r) for r in con.execute(
-        """SELECT t.id AS tool_id, t.name, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
-           FROM area_screener s JOIN tool t ON t.id = s.tool_id
-           WHERE s.area_id = ?
-           ORDER BY CASE s.role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, s.grade_lo, t.name""",
-        (area_id,))]
-    for s in screeners:  # NCII screening-chart rows for this tool at this screener's grades (Q11)
+    # screening rows by teacher: '-' is the area's rule, a person is what that teacher screens with
+    screeners = {}
+    for s in con.execute(
+            """SELECT s.teacher, t.id AS tool_id, t.name, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
+               FROM area_screener s JOIN tool t ON t.id = s.tool_id
+               WHERE s.area_id = ?
+               ORDER BY CASE s.role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, s.grade_lo, t.name""",
+            (area_id,)):
+        screeners.setdefault(s["teacher"], []).append(dict(s))
+    for s in (x for rows in screeners.values() for x in rows):  # NCII screening-chart rows at this screener's grades (Q11)
         s["ncii"] = con.execute(
             """SELECT measure, grade, ca_fall, ca_winter, ca_spring, ca_fall_d, ca_winter_d, ca_spring_d
                FROM ncii_screening WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade""",
@@ -418,7 +421,9 @@ def tool(tool_id):
            FROM area_core c WHERE c.tool_id = :t
            UNION ALL
            SELECT 'screener: ' || replace(s.role, '_', ' '), s.area_id,
-                  grade_span(s.grade_lo, s.grade_hi) || coalesce(', ' || s.windows, ''), NULL, NULL, NULL
+                  grade_span(s.grade_lo, s.grade_hi) || coalesce(', ' || s.windows, '')
+                  || CASE WHEN s.teacher <> '-' THEN ' — ' || (SELECT name FROM instructor WHERE id = s.teacher) ELSE '' END,
+                  NULL, NULL, NULL
            FROM area_screener s WHERE s.tool_id = :t
            UNION ALL
            SELECT CASE WHEN p.placement_tool_id = :t THEN 'placement test'
@@ -821,6 +826,95 @@ def instructor_edit(instructor_id):
         return render_instructor_form(con, vals, subjects, training, instructor_id, [integrity_message(e)]), 400
     flash(f"Saved {vals['name']}.", "ok")
     return redirect(url_for("instructor", instructor_id=instructor_id))
+
+
+# ---- screening rows (area_screener): one form per area × teacher ---------------------------------
+SCREEN_ROLES = ["screen", "level_check", "on_request"]
+SCREEN_STATUSES = ["doc", "unwritten", "proposed"]
+
+
+def read_screening_form():
+    """Form -> (rows, errors). Rows without a tool are dropped."""
+    f = request.form
+    tools = f.getlist("s_tool")
+
+    def pick(name, i):
+        vals = f.getlist(name)
+        return (vals[i] if i < len(vals) else "").strip()
+
+    rows, errs = [], []
+    for i, tid in enumerate(tools):
+        if not tid.strip():
+            continue
+        lo, hi = pick("s_lo", i), pick("s_hi", i)
+        try:
+            lo, hi = int(lo), int(hi)
+        except ValueError:
+            errs.append(f"Row {i + 1}: both grades are required.")
+            lo = hi = None
+        rows.append({"tool_id": tid.strip(), "grade_lo": lo, "grade_hi": hi, "windows": pick("s_windows", i) or None,
+                     "role": pick("s_role", i) or "screen", "cut": pick("s_cut", i) or None,
+                     "status": pick("s_status", i) or "unwritten"})
+    return rows, errs
+
+
+def screening_errors(con, rows, errs):
+    seen = set()
+    for i, r in enumerate(rows, 1):
+        if not con.execute("SELECT 1 FROM tool WHERE id = ?", (r["tool_id"],)).fetchone():
+            errs.append(f"Row {i}: tool '{r['tool_id']}' does not exist.")
+        if r["grade_lo"] is not None and r["grade_lo"] > r["grade_hi"]:
+            errs.append(f"Row {i}: the grade range is backwards.")
+        if r["role"] not in SCREEN_ROLES:
+            errs.append(f"Row {i}: role must be one of {', '.join(SCREEN_ROLES)}.")
+        if r["status"] not in SCREEN_STATUSES:
+            errs.append(f"Row {i}: status must be one of {', '.join(SCREEN_STATUSES)}.")
+        key = (r["tool_id"], r["grade_lo"], r["role"])
+        if key in seen:
+            errs.append(f"Row {i}: same tool, starting grade and role as an earlier row.")
+        seen.add(key)
+    return errs
+
+
+def render_screening_form(con, a, who, rows, errors=()):
+    return render_template(
+        "screening_edit.html", area=a, who=who, rows=rows, errors=errors, roles=SCREEN_ROLES, statuses=SCREEN_STATUSES,
+        tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(), all_areas=all_areas(con))
+
+
+@app.route("/area/<area_id>/screening/<teacher>", methods=["GET", "POST"])
+@login_required
+def screening_edit(area_id, teacher):
+    con = db()
+    a = con.execute("SELECT * FROM area WHERE id = ? AND id <> '-'", (area_id,)).fetchone()
+    who = con.execute("SELECT * FROM instructor WHERE id = ?", (teacher,)).fetchone()
+    if a is None or who is None:
+        abort(404)
+    if request.method == "GET":
+        rows = [dict(r) for r in con.execute(
+            """SELECT tool_id, grade_lo, grade_hi, windows, role, cut, status FROM area_screener
+               WHERE area_id = ? AND teacher = ?
+               ORDER BY CASE role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, grade_lo, tool_id""",
+            (area_id, teacher))]
+        return render_screening_form(con, a, who, rows)
+    rows, errs = read_screening_form()
+    errs = screening_errors(con, rows, errs)
+    if errs:
+        return render_screening_form(con, a, who, rows, errs), 400
+    try:
+        con.execute("DELETE FROM area_screener WHERE area_id = ? AND teacher = ?", (area_id, teacher))
+        con.executemany(
+            """INSERT INTO area_screener (area_id, teacher, tool_id, grade_lo, grade_hi, windows, role, cut, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [(area_id, teacher, r["tool_id"], r["grade_lo"], r["grade_hi"], r["windows"], r["role"], r["cut"], r["status"])
+             for r in rows])
+        con.commit()
+    except sqlite3.IntegrityError as e:
+        con.rollback()
+        return render_screening_form(con, a, who, rows, [integrity_message(e)]), 400
+    flash(f"Saved screening for {a['subject']} {grade_span(a['grade_lo'], a['grade_hi'])}"
+          + (f" ({who['name']})" if teacher != "-" else "") + ".", "ok")
+    return redirect(url_for("area", area_id=area_id) + ("#observed" if teacher != "-" else "#defined"))
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ INSERT INTO area_core VALUES
 ('math-6','cpm',NULL,'doc');
 -- reading-35 and ela-6 have no core named in either district document.
 
-INSERT INTO area_screener VALUES
+INSERT INTO area_screener(area_id,tool_id,grade_lo,grade_hi,windows,role,cut,status) VALUES
 ('math-k4','star-m',3,4,'Sep,Jan,May','screen','PR < 25','doc'),
 ('math-k4','mcas-m',4,4,'prior spring','screen','Partially Meeting','doc'),
 ('reading-35','dibels',3,4,'Sep,Jan,May','screen','below ORF benchmark','doc'),

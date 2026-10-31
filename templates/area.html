@@ -30,10 +30,12 @@
 {# ---- Tier 1: core + screening + progress monitoring ------------------------------------------
    col is the (single, whole-class) protocol row or none; show_area draws the area-level core and
    screener tables, which have no teacher, so only the defined view shows them. #}
-{% macro tier1(col, teacher, show_area) %}
+{% macro tier1(col, teacher) %}
   {% set st = col.status if col else 'none' %}
+  {% set scr = screeners.get(teacher, []) %}
   <h2 class="tier">Tier 1{% if teacher != '-' %} <small>({{ instructors[teacher].name }})</small>{% endif %}
-    {% if logged_in() and col %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=col.id) }}">edit</a>{% endif %}</h2>
+    {% if logged_in() and col %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=col.id) }}">edit</a>{% endif %}
+    {% if logged_in() %}<a class="edit" href="{{ url_for('screening_edit', area_id=area.id, teacher=teacher) }}">edit screening</a>{% endif %}</h2>
   {% if col %}
   <p class="rowline">{{ status_bits(col) }}
     {% if col.status_note %}<span>{{ col.status_note }}</span>{% endif %}
@@ -43,11 +45,11 @@
     <tr>
       <th class="field">Core</th>
       <td class="status-{{ st }}">
-        {% if show_area and cores %}
+        {% if teacher == '-' and cores %}
           {% for c in cores %}<div><a href="{{ url_for('tool', tool_id=c.tool_id) }}">{{ c.name }}</a>{% if c.role %} <span class="muted">({{ c.role }})</span>{% endif %} <span class="tag {{ c.status }}">{{ c.status }}</span></div>{% endfor %}
         {% elif col and col.cells.program.text %}
           <div>{{ value(col.cells.program) }} {{ prog_sub(col.cells.program) }}</div>
-        {% else %}<span class="empty">{% if show_area %}no core program named in any district document{% else %}—{% endif %}</span>{% endif %}
+        {% else %}<span class="empty">{% if teacher == '-' %}no core program named in any district document{% else %}—{% endif %}</span>{% endif %}
         {% if col and (col.cells.deliverer_role.text or col.cells.dosage.text) %}
           <div class="sub">{{ col.cells.deliverer_role.text or '' }}{% if col.cells.deliverer_role.text and col.cells.dosage.text %} · {% endif %}{% if col.cells.dosage.text %}{{ value(col.cells.dosage) }}{% endif %}</div>
         {% endif %}
@@ -57,10 +59,10 @@
     <tr>
       <th class="field">Screening</th>
       <td class="status-{{ st }} nest">
-        {% if show_area and screeners %}
+        {% if scr %}
         <table class="mini screen">
           <thead><tr><th>Tool</th><th>Rule</th><th>When</th><th>Grades</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
-          <tbody>{% for s in screeners %}
+          <tbody>{% for s in scr %}
           <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a>{% if s.role != 'screen' %} <span class="muted">({{ s.role.replace('_', ' ') }})</span>{% endif %}</td>
               <td>{% if s.cut %}{{ s.cut }}{% else %}<span class="empty">—</span>{% endif %}</td>
               <td>{% if s.windows %}{{ s.windows }}{% else %}<span class="empty">—</span>{% endif %}</td>
@@ -72,12 +74,12 @@
           {% endfor %}</tbody>
         </table>
         {% endif %}
-        {% if col and not show_area and col.cells.placement.text %}
+        {% if col and not scr and col.cells.placement.text %}
           <div class="line"><span class="lbl">Tool</span> {{ value(col.cells.placement) }}</div>
         {% endif %}
         {% if col and col.cells.entry_rule.text %}
           <div class="line"><span class="lbl">Entry rule</span> {{ col.cells.entry_rule.text }}</div>
-        {% elif not (show_area and screeners) and not (col and not show_area and col.cells.placement.text) %}
+        {% elif not scr and not (col and col.cells.placement.text) %}
           <div class="line"><span class="empty">—</span></div>
         {% endif %}
       </td>
@@ -165,20 +167,21 @@
       <h2 class="observed-head"><a href="{{ url_for('instructor', instructor_id=who.id) }}">{{ who.name }}</a>{% if who.full_name %} <span class="muted">{{ who.full_name }}</span>{% endif %}
         <small>{{ [who.role, (who.subjects|join(', ') ~ (' ' ~ who.grade_lo|grade_span(who.grade_hi) if who.grade_lo is not none else ''))|trim,
                    ('FLEX duty' if who.flex_duty), ('interviewed ' ~ who.interviewed_on) if who.interviewed_on]|select|join(' · ') }}</small></h2>
+      {% if 1 not in tiers and screeners.get(teacher) %}{{ tier1(none, teacher) }}{% endif %}
       {% for tier, cols in tiers.items() %}
-        {% if tier == 1 and cols|length == 1 %}{{ tier1(cols[0], teacher, False) }}
+        {% if tier == 1 and cols|length == 1 %}{{ tier1(cols[0], teacher) }}
         {% else %}{{ tier_table(tier, cols, teacher) }}{% endif %}
       {% endfor %}
     {% endfor %}
   </section>
 
   <section class="view view-defined">
-    {% if 1 in defined and defined[1]|length == 1 %}{{ tier1(defined[1][0], '-', True) }}
+    {% if 1 in defined and defined[1]|length == 1 %}{{ tier1(defined[1][0], '-') }}
     {% elif 1 in defined %}{{ tier_table(1, defined[1], '-') }}
-    {% elif cores or screeners %}{{ tier1(none, '-', True) }}
+    {% elif cores or screeners.get('-') %}{{ tier1(none, '-') }}
     {% endif %}
     {% for tier, cols in defined.items() if tier != 1 %}{{ tier_table(tier, cols, '-') }}{% endfor %}
-    {% if not defined and not cores and not screeners %}<p class="muted">Nothing defined for this area yet.</p>{% endif %}
+    {% if not defined and not cores and not screeners.get('-') %}<p class="muted">Nothing defined for this area yet.</p>{% endif %}
   </section>
 </div>
 

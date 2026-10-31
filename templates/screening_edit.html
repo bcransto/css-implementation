@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Screening · {{ area.subject }} {{ area.grade_lo|grade_span(area.grade_hi) }} · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}" {% if a.id == area.id %}class="here"{% endif %}>{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>Screening: {{ area.subject }} {{ area.grade_lo|grade_span(area.grade_hi) }}
+  {% if who.id != '-' %}<small>what <a href="{{ url_for('instructor', instructor_id=who.id) }}">{{ who.name }}</a> screens with</small>
+  {% else %}<small>the area's rule</small>{% endif %}
+  <small>· <a href="{{ url_for('area', area_id=area.id) }}#{{ 'observed' if who.id != '-' else 'defined' }}">back to the page</a></small></h1>
+
+{% if errors %}<div class="msg error"><strong>Not saved.</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<form method="post" class="edit">
+<fieldset class="rows">
+  <legend>Screening tools{% if who.id != '-' %} ({{ who.name }}){% endif %}</legend>
+  <div class="scroll"><table class="mini rows">
+    <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag rule</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for r in rows + [{}, {}] %}
+    <tr>
+      <td><select name="s_tool"><option value="">—</option>
+        {% for t in tools %}<option value="{{ t.id }}" {% if r.tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></td>
+      <td><span class="pair">
+        <select name="s_lo">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_lo if r.grade_lo is not none else area.grade_lo) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
+        <select name="s_hi">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_hi if r.grade_hi is not none else area.grade_hi) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select></span></td>
+      <td><input name="s_windows" value="{{ r.windows or '' }}" placeholder="Sep,Jan,May"></td>
+      <td><select name="s_role">{% for x in roles %}<option value="{{ x }}" {% if (r.role or 'screen') == x %}selected{% endif %}>{{ x.replace('_', ' ') }}</option>{% endfor %}</select></td>
+      <td><input name="s_cut" value="{{ r.cut or '' }}" placeholder="PR < 25"></td>
+      <td><select name="s_status">{% for x in statuses %}<option value="{{ x }}" {% if (r.status or ('unwritten' if who.id != '-' else 'proposed')) == x %}selected{% endif %}>{{ x }}</option>{% endfor %}</select></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <small class="muted">Rows without a tool are ignored; clear the tool to remove a row. Two blank rows are offered each time.
+    <em>When</em> is the window text as it should read on the page; <em>Flag rule</em> is the cut or the words the teacher uses.</small>
+</fieldset>
+<div class="actions">
+  <button type="submit">Save</button>
+  <a href="{{ url_for('area', area_id=area.id) }}#{{ 'observed' if who.id != '-' else 'defined' }}">Cancel</a>
+</div>
+</form>
+{% endblock %}
