@@ -49,16 +49,33 @@
   </div>
 </section>
 
-<h2>Dimensions assessed <small>NCII's list; checked = selected on the tool's NCII page</small></h2>
-{% if has_dims %}
+<h2>Dimensions assessed <small>NCII's own list; checked = selected on the tool's NCII page</small></h2>
+{% for set in dimensions %}
+<h3 class="dimset">{{ set.label }}</h3>
+{% if set.per_measure %}
+<table class="ncii dimgrid">
+  <thead><tr><th>Skill</th>{% for m in set.measures %}<th>{{ m }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for heading, items in set.groups.items() %}
+    <tr class="grp"><th colspan="{{ set.measures|length + 1 }}">{{ heading }}</th></tr>
+    {% for name, ms in items %}
+    <tr class="{{ 'on' if ms else 'off' }}"><td>{{ name }}</td>
+      {% for m in set.measures %}<td class="c">{{ '☑' if m in ms else '' }}</td>{% endfor %}</tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
 <div class="dims">
-  {% for subject, items in dimensions.items() %}
-  <div><h3>{{ {'reading':'Reading','writing':'Spelling & written expression','math':'Mathematics'}[subject] }}</h3>
-    <ul>{% for d in items %}<li class="{{ 'on' if d.selected else 'off' }}"><span class="box">{{ '☑' if d.selected else '☐' }}</span> {{ d.name }}</li>{% endfor %}</ul>
+  {% for heading, items in set.groups.items() %}
+  <div><h3>{{ heading }}</h3>
+    <ul>{% for name, ms in items %}<li class="{{ 'on' if ms else 'off' }}"><span class="box">{{ '☑' if ms else '☐' }}</span> {{ name }}</li>{% endfor %}</ul>
   </div>
   {% endfor %}
 </div>
-{% else %}<p class="muted">No NCII dimensions recorded for this tool.</p>{% endif %}
+{% endif %}
+{% if set.skipped %}<p class="muted small">Nothing selected under {{ set.skipped|join(' or ') }}; those groups are not shown.</p>{% endif %}
+{% else %}<p class="muted">No NCII dimensions recorded for this tool.</p>{% endfor %}
 
 <h2>NCII academic screening tools chart
   <small>one row per measure and grade, as <a href="{{ NCII_SCREENING_URL }}">the chart</a> lists it</small></h2>

@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.9
+-- MTSS tier-definition schema, v0.10
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -18,6 +18,7 @@
 -- v0.8: tool carries the publisher's design (minimum dose, group size, deliverer, training, grades),
 --   named after NCII's Intensity columns; tool_evidence records what each reviewer found, or did not.
 -- v0.9: dimension (NCII's 17 academic dimensions) and tool_dimension (which ones a tool assesses).
+-- v0.10: dimension gets chart/grp and NCII's screening skill list; tool_dimension gets measure (per-measure claims).
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -61,22 +62,30 @@ CREATE TABLE tool_evidence (
   PRIMARY KEY (tool_id, source, finding)
 );
 
--- NCII's academic dimensions ("What dimensions does the tool assess?" on a tool's detail page),
--- the full list, so a tool page can show every dimension and mark the ones the tool targets.
+-- NCII's skill / dimension lists from its tool detail pages, the full lists, so a tool page can show every
+-- item and mark the ones a tool targets. Two lists, because NCII's charts differ:
+--   chart 'pm'        the progress monitoring page's 17 "dimensions" (reading 8, spelling/writing 2, math 7)
+--   chart 'screening' the screening page's "What skills does the tool screen?" checklist, finer and grouped
+--                     (Phonological processing: RAN, ... ; Word ID: Accuracy, Speed; ... ; eight math groups x 4)
 CREATE TABLE dimension (
-  id          TEXT PRIMARY KEY,           -- 'r-decoding', 'm-fractions'
+  id          TEXT PRIMARY KEY,           -- 'r-decoding', 'm-fractions', 's-pp-phonics', 's-m-fractions-acc'
   subject     TEXT NOT NULL CHECK (subject IN ('reading','writing','math')),
   name        TEXT NOT NULL,              -- as NCII prints it
-  sort        INTEGER NOT NULL            -- NCII's order within the list
+  sort        INTEGER NOT NULL,           -- NCII's order within the list
+  chart       TEXT NOT NULL DEFAULT 'pm' CHECK (chart IN ('pm','screening')),
+  grp         TEXT                        -- screening group heading ('Word ID'); NULL for the pm list
 );
 
--- the dimensions a tool assesses or targets; absence = not selected on NCII's page (or not entered)
+-- the dimensions a tool assesses or targets; absence = not selected on NCII's page (or not entered).
+-- measure is '-' for a claim about the whole tool (the pm page rates the tool once); a screening tool
+-- has one NCII page per measure, so its rows carry the measure name as in ncii_screening.measure.
 CREATE TABLE tool_dimension (
   tool_id     TEXT NOT NULL REFERENCES tool(id),
+  measure     TEXT NOT NULL DEFAULT '-',  -- '-' = whole tool; else ncii_screening.measure / ncii_pm.measure
   dimension_id TEXT NOT NULL REFERENCES dimension(id),
-  source      TEXT,                       -- 'NCII PM detail page', 'publisher'
+  source      TEXT,                       -- 'NCII PM detail page', 'NCII screening detail page', 'publisher'
   as_of       TEXT,
-  PRIMARY KEY (tool_id, dimension_id)
+  PRIMARY KEY (tool_id, measure, dimension_id)
 );
 
 -- which grades a tool is licensed/owned for; absence of a row = not owned
@@ -271,7 +280,7 @@ INSERT INTO area VALUES ('-', '-', 0, 0, 0);
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');
 
 -- NCII's academic dimension list (tool detail pages). NCII's page misspells "Writting"; corrected here.
-INSERT INTO dimension VALUES
+INSERT INTO dimension(id, subject, name, sort) VALUES
 ('r-global','reading','Global Indicator of Reading Competence',1),
 ('r-listening','reading','Listening Comprehension',2),
 ('r-vocab','reading','Vocabulary',3),
@@ -289,3 +298,69 @@ INSERT INTO dimension VALUES
 ('m-application','math','Mathematics Application',15),
 ('m-fractions','math','Fractions',16),
 ('m-algebra','math','Algebra',17);
+
+-- NCII's screening skill checklist (screening tool detail pages), grouped as the page prints it.
+INSERT INTO dimension(id, subject, name, sort, chart, grp) VALUES
+('s-pp-ran','reading','RAN',101,'screening','Phonological processing'),
+('s-pp-memory','reading','Memory',102,'screening','Phonological processing'),
+('s-pp-awareness','reading','Awareness',103,'screening','Phonological processing'),
+('s-pp-lsc','reading','Letter sound correspondence',104,'screening','Phonological processing'),
+('s-pp-phonics','reading','Phonics',105,'screening','Phonological processing'),
+('s-pp-structural','reading','Structural analysis',106,'screening','Phonological processing'),
+('s-wid-acc','reading','Accuracy',107,'screening','Word ID'),
+('s-wid-speed','reading','Speed',108,'screening','Word ID'),
+('s-nw-acc','reading','Accuracy',109,'screening','Nonword'),
+('s-nw-speed','reading','Speed',110,'screening','Nonword'),
+('s-sp-acc','reading','Accuracy',111,'screening','Spelling'),
+('s-sp-speed','reading','Speed',112,'screening','Spelling'),
+('s-pass-acc','reading','Accuracy',113,'screening','Passage'),
+('s-pass-speed','reading','Speed',114,'screening','Passage'),
+('s-rc-mc','reading','Multiple choice questions',115,'screening','Reading comprehension'),
+('s-rc-cloze','reading','Cloze',116,'screening','Reading comprehension'),
+('s-rc-cr','reading','Constructed response',117,'screening','Reading comprehension'),
+('s-rc-retell','reading','Retell',118,'screening','Reading comprehension'),
+('s-rc-maze','reading','Maze',119,'screening','Reading comprehension'),
+('s-rc-sv','reading','Sentence verification',120,'screening','Reading comprehension'),
+('s-rc-other','reading','Other',121,'screening','Reading comprehension'),
+('s-lc-mc','reading','Multiple choice questions',122,'screening','Listening comprehension'),
+('s-lc-cloze','reading','Cloze',123,'screening','Listening comprehension'),
+('s-lc-cr','reading','Constructed response',124,'screening','Listening comprehension'),
+('s-lc-retell','reading','Retell',125,'screening','Listening comprehension'),
+('s-lc-maze','reading','Maze',126,'screening','Listening comprehension'),
+('s-lc-sv','reading','Sentence verification',127,'screening','Listening comprehension'),
+('s-lc-vocab','reading','Vocabulary',128,'screening','Listening comprehension'),
+('s-lc-expressive','reading','Expressive',129,'screening','Listening comprehension'),
+('s-lc-receptive','reading','Receptive',130,'screening','Listening comprehension'),
+('s-m-global-acc','math','Accuracy',131,'screening','Global Indicator of Math Competence'),
+('s-m-global-speed','math','Speed',132,'screening','Global Indicator of Math Competence'),
+('s-m-global-mc','math','Multiple choice',133,'screening','Global Indicator of Math Competence'),
+('s-m-global-cr','math','Constructed response',134,'screening','Global Indicator of Math Competence'),
+('s-m-early-acc','math','Accuracy',135,'screening','Early Numeracy'),
+('s-m-early-speed','math','Speed',136,'screening','Early Numeracy'),
+('s-m-early-mc','math','Multiple choice',137,'screening','Early Numeracy'),
+('s-m-early-cr','math','Constructed response',138,'screening','Early Numeracy'),
+('s-m-concepts-acc','math','Accuracy',139,'screening','Mathematics Concepts'),
+('s-m-concepts-speed','math','Speed',140,'screening','Mathematics Concepts'),
+('s-m-concepts-mc','math','Multiple choice',141,'screening','Mathematics Concepts'),
+('s-m-concepts-cr','math','Constructed response',142,'screening','Mathematics Concepts'),
+('s-m-computation-acc','math','Accuracy',143,'screening','Mathematics Computation'),
+('s-m-computation-speed','math','Speed',144,'screening','Mathematics Computation'),
+('s-m-computation-mc','math','Multiple choice',145,'screening','Mathematics Computation'),
+('s-m-computation-cr','math','Constructed response',146,'screening','Mathematics Computation'),
+('s-m-application-acc','math','Accuracy',147,'screening','Mathematics Application'),
+('s-m-application-speed','math','Speed',148,'screening','Mathematics Application'),
+('s-m-application-mc','math','Multiple choice',149,'screening','Mathematics Application'),
+('s-m-application-cr','math','Constructed response',150,'screening','Mathematics Application'),
+('s-m-fractions-acc','math','Accuracy',151,'screening','Fractions/Decimals'),
+('s-m-fractions-speed','math','Speed',152,'screening','Fractions/Decimals'),
+('s-m-fractions-mc','math','Multiple choice',153,'screening','Fractions/Decimals'),
+('s-m-fractions-cr','math','Constructed response',154,'screening','Fractions/Decimals'),
+('s-m-algebra-acc','math','Accuracy',155,'screening','Algebra'),
+('s-m-algebra-speed','math','Speed',156,'screening','Algebra'),
+('s-m-algebra-mc','math','Multiple choice',157,'screening','Algebra'),
+('s-m-algebra-cr','math','Constructed response',158,'screening','Algebra'),
+('s-m-geometry-acc','math','Accuracy',159,'screening','Geometry'),
+('s-m-geometry-speed','math','Speed',160,'screening','Geometry'),
+('s-m-geometry-mc','math','Multiple choice',161,'screening','Geometry'),
+('s-m-geometry-cr','math','Constructed response',162,'screening','Geometry'),
+('s-m-other','math','Other',163,'screening','Mathematics');

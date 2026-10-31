@@ -418,17 +418,43 @@ def tool(tool_id):
         "SELECT * FROM ncii_intervention WHERE tool_id = ? ORDER BY study", (tool_id,)).fetchall()
     evidence = con.execute(
         "SELECT * FROM tool_evidence WHERE tool_id = ? ORDER BY source, finding", (tool_id,)).fetchall()
-    # NCII's dimension list with this tool's selections marked; grouped by subject in NCII's order
+    # NCII's dimension lists with this tool's selections marked. Two lists (chart 'pm' and 'screening');
+    # a list is shown when the tool has at least one selection on it. Selections may be per measure
+    # (DIBELS: one NCII screening page per measure) or for the whole tool (measure '-').
     dims = con.execute(
-        """SELECT d.subject, d.name, (td.tool_id IS NOT NULL) AS selected, td.source
+        """SELECT d.id, d.chart, d.subject, d.grp, d.name, td.measure
            FROM dimension d LEFT JOIN tool_dimension td ON td.dimension_id = d.id AND td.tool_id = ?
            ORDER BY d.sort""", (tool_id,)).fetchall()
-    dimensions = OrderedDict()
-    for d in dims:
-        dimensions.setdefault(d["subject"], []).append(d)
-    has_dims = any(d["selected"] for d in dims)
+    # measure display order: by the grades the measure covers on the screening chart, then name
+    measure_rank = {n["measure"]: (n["grade"],) for n in reversed(ncii)}  # min grade (ncii is sorted by grade)
+    subject_label = {'reading': 'Reading', 'writing': 'Spelling & written expression', 'math': 'Mathematics'}
+    dimensions = []
+    for chart, label in (('screening', 'NCII screening page: what skills does the tool screen?'),
+                         ('pm', 'NCII progress monitoring page: what dimensions does the tool assess?')):
+        rows = [d for d in dims if d["chart"] == chart]
+        sel = {}                               # dimension id -> set of measures selected
+        for d in rows:
+            if d["measure"] is not None:
+                sel.setdefault(d["id"], set()).add(d["measure"])
+        if not sel:
+            continue
+        subjects = {d["subject"] for d in rows if d["id"] in sel}
+        measures = sorted({m for ms in sel.values() for m in ms},
+                          key=lambda m: (measure_rank.get(m, (99,)), m))
+        groups = OrderedDict()                 # heading -> [(name, set of measures)]
+        seen = set()                           # the join repeats a dimension once per selected measure
+        for d in rows:
+            if d["subject"] not in subjects or d["id"] in seen:
+                continue
+            seen.add(d["id"])
+            heading = d["grp"] or subject_label[d["subject"]]
+            groups.setdefault(heading, []).append((d["name"], sel.get(d["id"], set())))
+        dimensions.append({"chart": chart, "label": label, "measures": measures,
+                           "per_measure": measures != ['-'], "groups": groups,
+                           "skipped": [subject_label[x] for x in ('reading', 'writing', 'math')
+                                       if x not in subjects and any(d["subject"] == x for d in rows)]})
     return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
-                           ncii_iv=ncii_iv, evidence=evidence, dimensions=dimensions, has_dims=has_dims,
+                           ncii_iv=ncii_iv, evidence=evidence, dimensions=dimensions,
                            all_areas=all_areas(con), tier_label=tier_label)
 
 

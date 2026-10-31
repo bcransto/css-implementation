@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.9
+# CSS tier-definition database — schema v0.10
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -25,8 +25,8 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 |---|---|---|
 | `area` | a subject × grade band (`math-6`, `reading-k2`) | numeric `grade_lo`/`grade_hi`, K = 0; `has_flex`. (`building` dropped in v0.7: the grade band implies it) |
 | `tool` | a named instrument or program | no `kind` column: a tool's role is whichever `protocol` column points at it. Carries the publisher's **design** (`minutes`, `min_per_week`, `min_weeks`, `design_group`/`max_group`, `interventionist`, `training`, `grade_lo`/`grade_hi`, `design_source`), named after NCII's Intensity columns |
-| `dimension` | one of NCII's 17 academic dimensions (reading 8, spelling and written expression 2, mathematics 7) | the full list, in NCII's order, so a tool page can show every dimension |
-| `tool_dimension` | one dimension a tool assesses or targets | from the tool's NCII detail page ("What dimensions does the tool assess?") or the publisher; absence = not selected |
+| `dimension` | one item on an NCII tool-page checklist | two lists, told apart by `chart`: the progress monitoring page's 17 "dimensions" (reading 8, spelling and written expression 2, mathematics 7) and the screening page's finer "What skills does the tool screen?" list (63 items under group headings in `grp`: Phonological processing, Word ID, Nonword, Spelling, Passage, Reading comprehension, Listening comprehension, eight math groups). Full lists, in NCII's order, so a tool page can show every item |
+| `tool_dimension` | one checklist item a tool, or one of its measures, is marked for | `measure` is `'-'` for a claim about the whole tool (the PM page rates a tool once); a screening tool has one NCII page per measure, so its rows carry the measure name as in `ncii_screening.measure`. Absence = not selected |
 | `tool_evidence` | what one reviewer found about a tool | `source` ∈ ncii / wwc / essa / publisher / study / other; `finding` in the source's words. A "not listed" row is a fact with a date; no rows = nobody has looked |
 | `tool_license` | the grades a tool is owned/licensed for | **no row = not owned**. Replaces a global `owned` flag; STAR Math is 1–5, not 6–8 |
 | `ncii_screening` | one row of NCII's academic screening tools chart: tool × measure × grade | **no row = not on the chart**. Ratings are `convincing` / `partial` / `unconvincing` / `unavailable`, NULL when not yet entered; `*_d` flags are NCII's "d" marker. See "NCII ratings" |
@@ -106,6 +106,8 @@ v0.5 (2026-10-30) added `ncii_pm` and Q12, and the PM table on the tool page. Sa
 v0.6 (2026-10-30) added `ncii_intervention` and Q13, keyed by study because that is the chart's grain. Applied by `db/migrations/2026-10-30-ncii-intervention.sql`. All three NCII charts now have a table.
 
 v0.9 (2026-10-31) added `dimension` and `tool_dimension`, loaded NCII's 17 dimensions and Star Reading's four, and the checklist on the tool page. Applied by `db/migrations/2026-10-31-dimensions.sql`.
+
+v0.10 (2026-10-31) made the dimension claim per measure. Reading DIBELS 8's seven NCII screening pages showed two things: each measure has its own page and checklist, and the screening page's checklist is a different, finer list than the PM page's 17 dimensions (it asks what a measure *screens*: RAN, phonics, nonword speed, maze, and so on). So `dimension` got `chart` and `grp` and the screening list, `tool_dimension` got `measure` (`'-'` = whole tool) in its key, DIBELS 8's seven measures were loaded, and each measure's NCII detail URL was set on its `ncii_screening` rows. The tool page shows a list when the tool has at least one selection on it: a checklist when the claims are whole-tool, a measure × skill grid when they are per measure; subjects with nothing selected are folded into one line. Applied by `db/migrations/2026-10-31-dimension-measure.sql`.
 
 v0.8 (2026-10-30) added the design fields on `tool` and `tool_evidence`, the design-vs-dose marker in the grid and edit form, and loaded Read Naturally's design from the chart. Applied by `db/migrations/2026-10-30-tool-design-evidence.sql`.
 

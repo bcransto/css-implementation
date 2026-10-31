@@ -75,6 +75,12 @@ ul.evidence { margin: 0; padding-left: 18px; font-size: 14px; } ul.evidence .not
 .dims li { padding: 2px 0; } .dims li.off { color: var(--muted); } .dims li.on { font-weight: 600; }
 .dims .box { display: inline-block; width: 1.2em; }
 @media (max-width: 800px) { .dims { grid-template-columns: 1fr; } }
+h3.dimset { margin: 14px 0 8px; }
+table.dimgrid { margin-bottom: 12px; }
+table.dimgrid thead th { font-size: 12px; max-width: 9em; }
+table.dimgrid tr.grp th { background: var(--head); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+table.dimgrid tr.off td { color: var(--muted); } table.dimgrid tr.on td:first-child { font-weight: 600; }
+p.small { font-size: 13px; }
 @media (max-width: 800px) { section.setup.three { grid-template-columns: 1fr; } }
 dl.examples dt { font-weight: 600; margin-top: 10px; }
 dl.examples dd { margin: 2px 0 0; max-width: 100ch; color: #333; }
