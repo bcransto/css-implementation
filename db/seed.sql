@@ -1,30 +1,48 @@
--- Seed for schema.sql (v0.3). Four areas built so far; rows tagged 'proposed' are ours, 'doc' are in district documents.
+-- Seed for schema.sql (v0.11 tables; v0.3 content). Four areas built so far; rows tagged 'proposed' are ours, 'doc' are in district documents.
 -- Rows with teacher <> '-' are observed practice (basis='observed') from the teacher survey.
 -- K = grade 0.
 PRAGMA foreign_keys = ON;
 
-INSERT INTO tool(id,name,vendor,minutes,notes,url) VALUES
-('cpm','CPM Core Connections','CPM',NULL,'Listed as MS core in tiers deck; McGraw Hill knowledge checks also listed (likely ALEKS). Confirm.',NULL),
-('into-math','HMH Into Math','HMH',NULL,'K-4 core',NULL),
-('fundations','Fundations','Wilson',NULL,'phonics core through gr 3',NULL),
-('mcas-m','MCAS Math','DESE',NULL,'annual, prior grade; criterion-referenced',NULL),
-('mcas-e','MCAS ELA','DESE',NULL,'annual, prior grade; valid comprehension screen (Vaughn & Fletcher 2012 p.4)',NULL),
-('star-m','STAR Math','Renaissance',20,'NCII screen + PM. SEM about +/-20-30 SS, so keep to windows; PM use only as level check.',NULL),
-('star-r','STAR Reading','Renaissance',20,'general comprehension; keep to windows',NULL),
-('dibels','DIBELS / Acadience ORF','Acadience',5,'wcpm + accuracy; K-4',NULL),
-('aleks','ALEKS','McGraw Hill',60,'standards-aligned topic mastery; NOT CPM-aligned; no norms; placement/practice, not a screener',NULL),
-('tmsfa','TMSFA one-minute read','TEA (free)',2,'equated gr 6-8 passages, wcpm + accuracy + retell; Vaughn & Fletcher 2012','https://jukebox.esc13.net/vgcdeveloper/TALA%20Reading/TMSFA%20Materials/'),
-('cbm-68','Grade 6-8 math CBM','easyCBM or Acadience Math',8,'mixed-skills timed probe with skills profile; TO BE CHOSEN',NULL),
-('fact-2m','2-minute fact probe','in-house (Fuchs-style)',2,'digits correct by operation',NULL),
-('wist','WIST','Wilson',40,'norm-referenced word ID + spelling; packaged with Just Words',NULL),
-('celf5-s','CELF-5 Screening Test','Pearson',15,'language screen; SLP; failing -> full CELF-5 under sped eval',NULL),
-('just-words','Just Words','Wilson',45,'structured literacy decoding gr 4-12; 14 units',NULL),
-('read-nat','Read Naturally','Read Naturally',30,'repeated reading fluency; placement built in',NULL),
-('bridges-i','Bridges Intervention','MLC',30,'K-5 kit organized by content (Vol 1-9); scripted; no outcome studies; not on NCII chart',NULL),
-('ffo','Fraction Face-Off','Fuchs / Vanderbilt',35,'NCII-listed, gr 4-6; not owned',NULL),
-('sbi','Schema-based instruction gr 6-8','Jitendra',45,'RCTs gr 6-8; PG 2021 Rec 5 strong; not owned',NULL),
-('fact-prog','Timed fact practice + strategy','Rocket Math or in-house',10,'PG 2021 Rec 6 moderate; not owned',NULL),
-('m6-anne-screener','Homemade grade 6 standards screener','in-house (Anne)',NULL,'Anne''s own screener built from the DESE grade 6 standards; used in place of STAR Math. Not normed.',NULL);
+INSERT INTO tool(id,name,vendor,notes,url) VALUES
+('cpm','CPM Core Connections','CPM','Listed as MS core in tiers deck; McGraw Hill knowledge checks also listed (likely ALEKS). Confirm.',NULL),
+('into-math','HMH Into Math','HMH','K-4 core',NULL),
+('fundations','Fundations','Wilson','phonics core through gr 3',NULL),
+('mcas-m','MCAS Math','DESE','annual, prior grade; criterion-referenced',NULL),
+('mcas-e','MCAS ELA','DESE','annual, prior grade; valid comprehension screen (Vaughn & Fletcher 2012 p.4)',NULL),
+('star-m','STAR Math','Renaissance','NCII screen + PM. SEM about +/-20-30 SS, so keep to windows; PM use only as level check.',NULL),
+('star-r','STAR Reading','Renaissance','general comprehension; keep to windows',NULL),
+('dibels','DIBELS / Acadience ORF','Acadience','wcpm + accuracy; K-4',NULL),
+('aleks','ALEKS','McGraw Hill','standards-aligned topic mastery; NOT CPM-aligned; no norms; placement/practice, not a screener',NULL),
+('tmsfa','TMSFA one-minute read','TEA (free)','equated gr 6-8 passages, wcpm + accuracy + retell; Vaughn & Fletcher 2012','https://jukebox.esc13.net/vgcdeveloper/TALA%20Reading/TMSFA%20Materials/'),
+('cbm-68','Grade 6-8 math CBM','easyCBM or Acadience Math','mixed-skills timed probe with skills profile; TO BE CHOSEN',NULL),
+('fact-2m','2-minute fact probe','in-house (Fuchs-style)','digits correct by operation',NULL),
+('wist','WIST','Wilson','norm-referenced word ID + spelling; packaged with Just Words',NULL),
+('celf5-s','CELF-5 Screening Test','Pearson','language screen; SLP; failing -> full CELF-5 under sped eval',NULL),
+('just-words','Just Words','Wilson','structured literacy decoding gr 4-12; 14 units',NULL),
+('read-nat','Read Naturally','Read Naturally','repeated reading fluency; placement built in',NULL),
+('bridges-i','Bridges Intervention','MLC','K-5 kit organized by content (Vol 1-9); scripted; no outcome studies; not on NCII chart',NULL),
+('ffo','Fraction Face-Off','Fuchs / Vanderbilt','NCII-listed, gr 4-6; not owned',NULL),
+('sbi','Schema-based instruction gr 6-8','Jitendra','RCTs gr 6-8; PG 2021 Rec 5 strong; not owned',NULL),
+('fact-prog','Timed fact practice + strategy','Rocket Math or in-house','PG 2021 Rec 6 moderate; not owned',NULL),
+('m6-anne-screener','Homemade grade 6 standards screener','in-house (Anne)','Anne''s own screener built from the DESE grade 6 standards; used in place of STAR Math. Not normed.',NULL);
+
+-- administration minutes (an assessment) or minimum minutes per session (a program), the vendor's figure
+INSERT INTO tool_profile(tool_id, minutes) VALUES
+('star-m',20),
+('star-r',20),
+('dibels',5),
+('aleks',60),
+('tmsfa',2),
+('cbm-68',8),
+('fact-2m',2),
+('wist',40),
+('celf5-s',15),
+('just-words',45),
+('read-nat',30),
+('bridges-i',30),
+('ffo',35),
+('sbi',45),
+('fact-prog',10);
 
 INSERT INTO tool_license VALUES
 ('cpm',5,8,NULL),('into-math',0,4,NULL),('fundations',0,3,NULL),

@@ -65,7 +65,7 @@ p.legend { font-size: 13px; color: var(--muted); margin-top: 8px; }
 .ncii-sub { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; } .ncii-sub a { text-decoration: none; } .ncii-sub .bubble { margin-left: 3px; font-size: 13px; }
 h1 code { font-size: 12px; color: var(--muted); background: var(--head); padding: 1px 5px; border-radius: 3px; }
 
-section.setup.three { grid-template-columns: 1fr 1fr 2fr; }
+section.setup.three { grid-template-columns: 1.6fr 0.8fr 1.6fr; }
 dl.design { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 14px; }
 dl.design dt { color: var(--muted); } dl.design dd { margin: 0; }
 ul.evidence { margin: 0; padding-left: 18px; font-size: 14px; } ul.evidence .note { font-size: 12px; }
@@ -80,7 +80,7 @@ table.dimgrid { margin-bottom: 12px; }
 table.dimgrid thead th { font-size: 12px; max-width: 9em; }
 table.dimgrid tr.grp th { background: var(--head); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 table.dimgrid tr.off td { color: var(--muted); } table.dimgrid tr.on td:first-child { font-weight: 600; }
-p.small { font-size: 13px; }
+p.small, td.small { font-size: 13px; } p.small { margin: 0 0 8px; }
 @media (max-width: 800px) { section.setup.three { grid-template-columns: 1fr; } }
 dl.examples dt { font-weight: 600; margin-top: 10px; }
 dl.examples dd { margin: 2px 0 0; max-width: 100ch; color: #333; }

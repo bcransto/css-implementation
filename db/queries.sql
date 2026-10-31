@@ -111,3 +111,17 @@ JOIN tool t ON t.id = p.program_id
 LEFT JOIN ncii_intervention n ON n.tool_id = p.program_id
 WHERE p.area_id = :area
 ORDER BY t.name, n.study;
+
+-- Q14 The three doses for an area's programs: the vendor's minimum (tool_profile), each NCII study as run
+--     (ncii_intervention), and each protocol (protocol.dosage). One row per protocol x study; a program with
+--     no studies still appears once.
+SELECT p.id AS protocol, p.tier, p.teacher, t.name AS program,
+       p.dosage, p.group_size, p.weeks,
+       pr.minutes AS vendor_minutes, pr.min_per_week AS vendor_per_week, pr.min_weeks AS vendor_weeks, pr.max_group AS vendor_max_group,
+       n.study, n.minutes AS study_minutes, n.per_week AS study_per_week, n.weeks AS study_weeks, n.group_size AS study_group, n.es_targeted
+FROM protocol p
+JOIN tool t ON t.id = p.program_id
+LEFT JOIN tool_profile pr ON pr.tool_id = t.id
+LEFT JOIN ncii_intervention n ON n.tool_id = t.id
+WHERE p.area_id = :area
+ORDER BY p.tier, p.teacher, t.name, n.study;

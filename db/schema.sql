@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.10
+-- MTSS tier-definition schema, v0.11
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -19,6 +19,9 @@
 --   named after NCII's Intensity columns; tool_evidence records what each reviewer found, or did not.
 -- v0.9: dimension (NCII's 17 academic dimensions) and tool_dimension (which ones a tool assesses).
 -- v0.10: dimension gets chart/grp and NCII's screening skill list; tool_dimension gets measure (per-measure claims).
+-- v0.11: who says what. tool_profile (the vendor's product claims, NCII's field names) and measure (the vendor's
+--   per-instrument claims) take the design and usability columns out of tool and the ncii_* tables, which keep
+--   only NCII's findings; ncii_intervention gains the study's own facts; the intervention checklist joins dimension.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -33,19 +36,59 @@ CREATE TABLE tool (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   vendor      TEXT,
-  minutes     INTEGER,                    -- minutes per session: the design minimum for a program, admin time for an assessment
   notes       TEXT,                       -- prose
-  url         TEXT,
-  -- the publisher's design for a program, named after NCII's Intensity columns; NULL = not stated
-  design_group TEXT,                      -- Administration Group Size as the source states it: 'Small group of students', '1-5'
-  max_group   INTEGER,                    -- largest group the design allows, when the source gives a number
-  min_per_week INTEGER,                   -- Minimum Duration: sessions per week
-  min_weeks   INTEGER,                    -- Minimum Duration: weeks, when stated
-  interventionist TEXT,                   -- Minimum Interventionist Requirements
-  training    TEXT,                       -- Minimum Training Requirements
-  grade_lo    INTEGER,                    -- grades the design covers (not the license: see tool_license)
+  url         TEXT
+);
+-- Everything the vendor claims about a tool is on tool_profile (the product) and measure (each instrument);
+-- everything NCII found is in the ncii_* tables. They never share a table.
+
+-- what the vendor says about one product, in the field names of NCII's submission form (the top half
+-- of every NCII tool page, reprinted unrated). One optional row per tool. For a program NCII never
+-- reviewed, filled from the publisher's implementation guide; source says which.
+CREATE TABLE tool_profile (
+  tool_id     TEXT PRIMARY KEY REFERENCES tool(id),
+  grade_lo    INTEGER,                    -- "intended for use in the following age(s) and/or grade(s)"; K = 0
   grade_hi    INTEGER,
-  design_source TEXT                      -- where the design came from: 'NCII intervention chart', an implementation guide, a URL
+  intended_for TEXT,                      -- "intended for use with the following groups", as checked
+  setting     TEXT,                       -- "Setting for which the program is designed": 'Individual students; Small group of students'
+  max_group   INTEGER,                    -- "how many students compose a small group", when a number is given
+  minutes     INTEGER,                    -- Minimum Number of Minutes Per Session (an assessment: administration minutes)
+  min_per_week INTEGER,                   -- Minimum Number of Sessions Per Week
+  min_weeks   INTEGER,                    -- Minimum Number of Weeks; NULL = not stated / until effective
+  interventionist TEXT,                   -- Staff Qualified to Administer
+  training    TEXT,                       -- Training Requirements: required?, time, format
+  support     TEXT,                       -- Access to Technical Support
+  cost        TEXT,                       -- Initial Cost, Replacement Cost, pricing structure, as written
+  technology  TEXT,                       -- Is Technology Required?, and what
+  manual      TEXT,                       -- Detailed Implementation Manual or Instructions Available: 'Yes' | 'No'
+  fidelity_checklist TEXT,                -- fidelity of implementation guidance in the manual: 'Yes' | 'No'
+  obtain      TEXT,                       -- Where to obtain
+  description TEXT,                       -- the vendor's description of the program
+  source      TEXT,                       -- 'NCII intervention tool page (vendor submission)', 'Wilson, Implementing Just Words'
+  url         TEXT,
+  as_of       TEXT                        -- YYYY-MM the source was read
+);
+
+-- what the vendor says about one instrument of an assessment (tool x measure): DIBELS 8 has seven,
+-- Star Reading one ("Reading"). NCII's screening and PM pages describe this unit and print its
+-- usability columns on every grade row; here they are held once. ncii_screening and ncii_pm reference it.
+CREATE TABLE measure (
+  tool_id     TEXT NOT NULL REFERENCES tool(id),
+  measure     TEXT NOT NULL,              -- NCII "Area": 'Composite', 'Oral Reading Fluency', 'Reading'
+  grade_lo    INTEGER,                    -- grades the instrument covers, per the NCII page; K = 0
+  grade_hi    INTEGER,
+  admin_format TEXT,                      -- 'Individual', 'Group', 'Individual; Group', 'Computer-administered'
+  admin_time  TEXT,                       -- Admin & Scoring Time, as the chart writes it
+  scoring_format TEXT,                    -- 'Automatic', 'Manual', 'Manual and/or Automatic'
+  decision_rules TEXT,                    -- screening: Types of Decision Rules ('Benchmark Goals', 'Risk Benchmarks')
+  multi_rules_evidence TEXT,              -- screening: Evidence Available for Multiple Decision Rules: 'Yes' | 'No'
+  roi_eoy     TEXT,                       -- PM: ROI & EOY Benchmarks, as written
+  description TEXT,                       -- the vendor's description of the measure
+  url         TEXT,                       -- NCII tool detail page for this measure
+  source      TEXT,
+  as_of       TEXT,
+  notes       TEXT,
+  PRIMARY KEY (tool_id, measure)
 );
 
 -- what each reviewer found about a tool, one row per source consulted. A 'not listed' row is a fact:
@@ -63,30 +106,40 @@ CREATE TABLE tool_evidence (
 );
 
 -- NCII's skill / dimension lists from its tool detail pages, the full lists, so a tool page can show every
--- item and mark the ones a tool targets. Two lists, because NCII's charts differ:
+-- item and mark the ones a tool targets. Three lists, because NCII's charts differ:
 --   chart 'pm'        the progress monitoring page's 17 "dimensions" (reading 8, spelling/writing 2, math 7)
 --   chart 'screening' the screening page's "What skills does the tool screen?" checklist, finer and grouped
 --                     (Phonological processing: RAN, ... ; Word ID: Accuracy, Speed; ... ; eight math groups x 4)
+--   chart 'intervention' the intervention page's "area of focus" checklist (Early Literacy, Language, Reading,
+--                     Mathematics, Writing, Externalizing and Internalizing Behavior)
 CREATE TABLE dimension (
-  id          TEXT PRIMARY KEY,           -- 'r-decoding', 'm-fractions', 's-pp-phonics', 's-m-fractions-acc'
-  subject     TEXT NOT NULL CHECK (subject IN ('reading','writing','math')),
+  id          TEXT PRIMARY KEY,           -- 'r-decoding', 's-pp-phonics', 'i-r-fluency'
+  subject     TEXT NOT NULL CHECK (subject IN ('reading','writing','math','language','behavior')),
   name        TEXT NOT NULL,              -- as NCII prints it
   sort        INTEGER NOT NULL,           -- NCII's order within the list
-  chart       TEXT NOT NULL DEFAULT 'pm' CHECK (chart IN ('pm','screening')),
-  grp         TEXT                        -- screening group heading ('Word ID'); NULL for the pm list
+  chart       TEXT NOT NULL DEFAULT 'pm' CHECK (chart IN ('pm','screening','intervention')),
+  grp         TEXT                        -- group heading ('Word ID', 'Early Literacy'); NULL for the pm list
 );
 
 -- the dimensions a tool assesses or targets; absence = not selected on NCII's page (or not entered).
--- measure is '-' for a claim about the whole tool (the pm page rates the tool once); a screening tool
--- has one NCII page per measure, so its rows carry the measure name as in ncii_screening.measure.
+-- measure is '-' for a claim about a program; an assessment's rows name a measure row (NCII has one page
+-- per measure). source says whether NCII's page or the publisher made the claim.
 CREATE TABLE tool_dimension (
   tool_id     TEXT NOT NULL REFERENCES tool(id),
-  measure     TEXT NOT NULL DEFAULT '-',  -- '-' = whole tool; else ncii_screening.measure / ncii_pm.measure
+  measure     TEXT NOT NULL DEFAULT '-',  -- '-' = the whole tool; else a measure.measure for this tool (trigger below)
   dimension_id TEXT NOT NULL REFERENCES dimension(id),
   source      TEXT,                       -- 'NCII PM detail page', 'NCII screening detail page', 'publisher'
   as_of       TEXT,
   PRIMARY KEY (tool_id, measure, dimension_id)
 );
+-- a tool_dimension row that names a measure must name one the vendor described
+CREATE TRIGGER tool_dimension_measure BEFORE INSERT ON tool_dimension
+BEGIN
+  SELECT RAISE(ABORT, 'tool_dimension.measure must be ''-'' or a measure row for this tool')
+  WHERE NEW.measure <> '-'
+    AND NOT EXISTS (SELECT 1 FROM measure m WHERE m.tool_id = NEW.tool_id AND m.measure = NEW.measure);
+END;
+
 
 -- which grades a tool is licensed/owned for; absence of a row = not owned
 CREATE TABLE tool_license (
@@ -102,6 +155,7 @@ CREATE TABLE tool_license (
 -- Ratings: convincing / partial / unconvincing (NCII's full, half, empty bubble),
 -- 'unavailable' = NCII's null bubble, NULL = not yet entered. *_d = NCII's "d" marker,
 -- disaggregated data available. Sample representativeness and bias analysis are chart text.
+-- Only NCII's findings: the chart's usability columns are the vendor's and live on measure.
 CREATE TABLE ncii_screening (
   tool_id     TEXT NOT NULL REFERENCES tool(id),
   measure     TEXT NOT NULL,              -- NCII "Area": 'Composite', 'Computation', 'Maze'
@@ -114,16 +168,11 @@ CREATE TABLE ncii_screening (
   ca_spring_d INTEGER NOT NULL DEFAULT 0,
   reliability TEXT CHECK (reliability IN ('convincing','partial','unconvincing','unavailable')),
   validity    TEXT CHECK (validity    IN ('convincing','partial','unconvincing','unavailable')),
-  sample_rep  TEXT,                       -- Sample Representativeness, chart text: 'National without Cross-Validation'
-  bias_analysis TEXT,                     -- 'Provided' | 'Not Provided' (chart text, not a bubble)
-  admin_format TEXT,                      -- 'Individual', 'Group', 'Individual; Group'
-  admin_time  TEXT,                       -- Admin & Scoring Time, as written on the chart
-  scoring_format TEXT,                    -- 'Automatic', 'Manual', ...
-  decision_rules TEXT,                    -- Types of Decision Rules
-  multi_rules_evidence TEXT,              -- Evidence Available for Multiple Decision Rules: 'Yes' | 'No'
-  url         TEXT,                       -- NCII tool detail page
+  sample_rep  TEXT,                       -- Sample Representativeness, NCII's classification: 'National without Cross-Validation'
+  bias_analysis TEXT,                     -- 'Provided' | 'Not Provided': whether the vendor submitted one
   as_of       TEXT,                       -- YYYY-MM the row was copied from the chart
-  PRIMARY KEY (tool_id, measure, grade)
+  PRIMARY KEY (tool_id, measure, grade),
+  FOREIGN KEY (tool_id, measure) REFERENCES measure(tool_id, measure)
 );
 
 -- NCII academic progress monitoring tools chart, one row per chart row (tool x measure x grade x type).
@@ -131,57 +180,55 @@ CREATE TABLE ncii_screening (
 -- legend lists the "d" marker but no PM cell carries one, so there are no *_d flags here.
 CREATE TABLE ncii_pm (
   tool_id       TEXT NOT NULL REFERENCES tool(id),
-  measure       TEXT NOT NULL,            -- NCII "Area": 'Computation', 'Maze', 'Oral Reading Fluency'
+  measure       TEXT NOT NULL,            -- NCII "Area": 'Computation', 'Maze', 'Reading'
   grade         INTEGER NOT NULL,         -- K = 0; one grade per row, as on the chart
   measure_type  TEXT NOT NULL,            -- 'End Year Goal' (general outcome) | 'Short Term Skill' (mastery)
   -- performance level standards
   reliability   TEXT CHECK (reliability IN ('convincing','partial','unconvincing','unavailable')),
   validity      TEXT CHECK (validity IN ('convincing','partial','unconvincing','unavailable')),
-  bias_analysis TEXT,                     -- 'Provided' | 'Not Provided' (chart text, not a bubble)
+  bias_analysis TEXT,                     -- 'Provided' | 'Not Provided'
   -- growth standards
   slope_reliability TEXT CHECK (slope_reliability IN ('convincing','partial','unconvincing','unavailable')),  -- Sensitivity: Reliability of Slope
   slope_validity    TEXT CHECK (slope_validity IN ('convincing','partial','unconvincing','unavailable')),     -- Sensitivity: Validity of Slope
   alt_forms         TEXT CHECK (alt_forms IN ('convincing','partial','unconvincing','unavailable')),          -- Alternate Forms
   rules_goals       TEXT CHECK (rules_goals IN ('convincing','partial','unconvincing','unavailable')),        -- Decision Rules: Setting & Revising Goals
   rules_instruction TEXT CHECK (rules_instruction IN ('convincing','partial','unconvincing','unavailable')),  -- Decision Rules: Changing Instruction
-  -- usability
-  admin_format  TEXT,                     -- 'Individual', 'Group', 'Computer-administered', 'Other'
-  admin_time    TEXT,                     -- Admin & Scoring Time, as written on the chart
-  scoring_format TEXT,                    -- 'Manual', 'Automatic', 'Other'
-  roi_eoy       TEXT,                     -- ROI & EOY Benchmarks, as written ('ROI & EOY Benchmarks Available')
-  url           TEXT,                     -- NCII tool detail page
   as_of         TEXT,                     -- YYYY-MM the row was copied from the chart
-  PRIMARY KEY (tool_id, measure, grade, measure_type)
+  PRIMARY KEY (tool_id, measure, grade, measure_type),
+  FOREIGN KEY (tool_id, measure) REFERENCES measure(tool_id, measure)
 );
 
 -- NCII academic intervention tools chart, one row per STUDY of a program (the chart's grain).
 -- No row for a tool = not on the chart. Same rating vocabulary; visual_analysis also allows
 -- 'na' (the chart's NA for group designs). Effect sizes are kept as the chart prints them,
--- with its markers: * significant, † not computable, -- no measures submitted.
+-- with its markers: * significant, † not computable, -- no measures submitted. The chart's Intensity
+-- columns are the vendor's design (tool_profile); its WWC/E-ESSA column is in tool_evidence.
 CREATE TABLE ncii_intervention (
   tool_id       TEXT NOT NULL REFERENCES tool(id),
   study         TEXT NOT NULL,            -- citation as on the chart: 'Tracey & Young (2004)'
   study_type    TEXT,                     -- 'Group Design' | 'Single Case'
-  -- quality of design & results
+  -- NCII's ratings: quality of design & results
   design        TEXT CHECK (design IN ('convincing','partial','unconvincing','unavailable')),
   es_targeted   TEXT,                     -- Average ES (Targeted), as printed
   es_broader    TEXT,                     -- Average ES (Broader), as printed
   disagg_es     TEXT,                     -- Disaggregated ES Data Available: 'None', or which subgroups
   visual_analysis TEXT CHECK (visual_analysis IN ('convincing','partial','unconvincing','unavailable','na')),
-  -- quality of other indicators
+  -- NCII's ratings: quality of other indicators
   participants  TEXT CHECK (participants IN ('convincing','partial','unconvincing','unavailable')),
   fidelity      TEXT CHECK (fidelity IN ('convincing','partial','unconvincing','unavailable')),         -- Fidelity of Implementation
   targeted_measures TEXT CHECK (targeted_measures IN ('convincing','partial','unconvincing','unavailable')),
   broader_measures  TEXT CHECK (broader_measures IN ('convincing','partial','unconvincing','unavailable')),
   n_outcome_measures TEXT,                -- No. of Outcome Measures: '7 Reading'
-  -- intensity
-  admin_group_size TEXT,                  -- Administration Group Size: 'Small group of students'
-  duration      TEXT,                     -- Duration of Intervention: '45 minutes, 2 times a week, 20 weeks'
-  interventionist TEXT,                   -- Minimum Interventionist Requirements: 'Teacher', 'Specialist'
-  training      TEXT,                     -- Minimum Training Requirements: '1-2 days of training'
-  -- additional research
-  wwc_essa      TEXT,                     -- Intervention Reviewed by WWC or E-ESSA
-  other_research TEXT,                    -- Other Research Potentially Eligible for NCII Review
+  -- the study's own facts, as implemented (the vendor's design minimums are on tool_profile)
+  sample        TEXT,                     -- who: '109 grade 3 students in 6 suburban schools, below the 40th percentile on ORF'
+  grades        TEXT,                     -- '3', '3-5'
+  assignment    TEXT,                     -- 'randomized', 'matched comparison', 'systematic (convenience sample)'
+  group_size    TEXT,                     -- as run: '3-6 (mean 5)', 'individual'
+  weeks         TEXT,
+  per_week      TEXT,                     -- sessions per week, as run
+  minutes       TEXT,                     -- per session, as run: '30 planned, about 20 delivered'
+  deliverer     TEXT,                     -- who taught it, and their training
+  notes         TEXT,                     -- results and caveats in a sentence
   url           TEXT,                     -- NCII study detail page
   as_of         TEXT,                     -- YYYY-MM the row was copied from the chart
   PRIMARY KEY (tool_id, study)
@@ -364,3 +411,50 @@ INSERT INTO dimension(id, subject, name, sort, chart, grp) VALUES
 ('s-m-geometry-mc','math','Multiple choice',161,'screening','Geometry'),
 ('s-m-geometry-cr','math','Constructed response',162,'screening','Geometry'),
 ('s-m-other','math','Other',163,'screening','Mathematics');
+
+-- NCII's intervention-page checklist ("Please indicate the academic / behavior area of focus").
+INSERT INTO dimension(id, subject, name, sort, chart, grp) VALUES
+('i-el-print','reading','Print knowledge/awareness',201,'intervention','Early Literacy'),
+('i-el-alphabet','reading','Alphabet knowledge',202,'intervention','Early Literacy'),
+('i-el-pa','reading','Phonological awareness',203,'intervention','Early Literacy'),
+('i-el-writing','reading','Early writing',204,'intervention','Early Literacy'),
+('i-el-decoding','reading','Early decoding abilities',205,'intervention','Early Literacy'),
+('i-el-other','reading','Other',206,'intervention','Early Literacy'),
+('i-lang-vocab','language','Expressive and receptive vocabulary',207,'intervention','Language'),
+('i-lang-grammar','language','Grammar',208,'intervention','Language'),
+('i-lang-syntax','language','Syntax',209,'intervention','Language'),
+('i-lang-listening','language','Listening comprehension',210,'intervention','Language'),
+('i-lang-other','language','Other',211,'intervention','Language'),
+('i-r-pa','reading','Phonological awareness',212,'intervention','Reading'),
+('i-r-phonics','reading','Phonics/word study',213,'intervention','Reading'),
+('i-r-comp','reading','Comprehension',214,'intervention','Reading'),
+('i-r-fluency','reading','Fluency',215,'intervention','Reading'),
+('i-r-vocab','reading','Vocabulary',216,'intervention','Reading'),
+('i-r-spelling','reading','Spelling',217,'intervention','Reading'),
+('i-r-other','reading','Other',218,'intervention','Reading'),
+('i-m-computation','math','Computation',219,'intervention','Mathematics'),
+('i-m-concepts','math','Concepts and/or word problems',220,'intervention','Mathematics'),
+('i-m-whole','math','Whole number arithmetic',221,'intervention','Mathematics'),
+('i-m-comprehensive','math','Comprehensive: computation/procedures, problem solving, and mathematical concepts',222,'intervention','Mathematics'),
+('i-m-algebra','math','Algebra',223,'intervention','Mathematics'),
+('i-m-fractions','math','Fractions, decimals (rational number)',224,'intervention','Mathematics'),
+('i-m-geometry','math','Geometry and measurement',225,'intervention','Mathematics'),
+('i-m-other','math','Other',226,'intervention','Mathematics'),
+('i-w-handwriting','writing','Handwriting',227,'intervention','Writing'),
+('i-w-spelling','writing','Spelling',228,'intervention','Writing'),
+('i-w-sentence','writing','Sentence construction',229,'intervention','Writing'),
+('i-w-planning','writing','Planning and revising',230,'intervention','Writing'),
+('i-w-other','writing','Other',231,'intervention','Writing'),
+('i-ext-aggression','behavior','Physical aggression',232,'intervention','Externalizing Behavior'),
+('i-ext-threats','behavior','Verbal threats',233,'intervention','Externalizing Behavior'),
+('i-ext-property','behavior','Property destruction',234,'intervention','Externalizing Behavior'),
+('i-ext-noncompliance','behavior','Noncompliance',235,'intervention','Externalizing Behavior'),
+('i-ext-disengagement','behavior','High levels of disengagement',236,'intervention','Externalizing Behavior'),
+('i-ext-disruptive','behavior','Disruptive behavior',237,'intervention','Externalizing Behavior'),
+('i-ext-social','behavior','Social behavior (peer and adult interactions)',238,'intervention','Externalizing Behavior'),
+('i-ext-other','behavior','Other',239,'intervention','Externalizing Behavior'),
+('i-int-depression','behavior','Depression',240,'intervention','Internalizing Behavior'),
+('i-int-anxiety','behavior','Anxiety',241,'intervention','Internalizing Behavior'),
+('i-int-social','behavior','Social difficulties (e.g., withdrawal)',242,'intervention','Internalizing Behavior'),
+('i-int-phobia','behavior','School phobia',243,'intervention','Internalizing Behavior'),
+('i-int-other','behavior','Other',244,'intervention','Internalizing Behavior');

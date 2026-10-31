@@ -224,7 +224,7 @@ SELECT p.id, p.tier, p.teacher, p.basis, p.as_of, p.evidence,
        pr.name AS profile, pr.sort_rule,
        pl.name AS placement, pl.notes AS placement_notes, p.placement_tool_id AS placement_id,
        pg.name AS program,   pg.notes AS program_notes,   p.program_id,
-       pg.minutes AS design_minutes, pg.min_per_week AS design_per_week, pg.max_group AS design_max_group,
+       pgp.minutes AS design_minutes, pgp.min_per_week AS design_per_week, pgp.max_group AS design_max_group,
        pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
        p.pm_metric, p.entry_rule, p.deliverer_role, p.dosage, p.group_size, p.weeks,
        p.pm_rule, p.review_rule, p.exit_rule,
@@ -235,6 +235,7 @@ FROM protocol p
 JOIN profile pr ON pr.id = p.profile_id
 LEFT JOIN tool pl ON pl.id = p.placement_tool_id
 LEFT JOIN tool pg ON pg.id = p.program_id
+LEFT JOIN tool_profile pgp ON pgp.tool_id = p.program_id
 LEFT JOIN tool pm ON pm.id = p.pm_tool_id
 LEFT JOIN route nx ON nx.id = p.next_step_id
 LEFT JOIN route nr ON nr.id = p.nonresponse_id
@@ -393,6 +394,10 @@ def tool(tool_id):
     t = con.execute("SELECT * FROM tool WHERE id = ?", (tool_id,)).fetchone()
     if t is None:
         abort(404)
+    # the vendor's claims: the product (tool_profile) and each instrument (measure)
+    profile = con.execute("SELECT * FROM tool_profile WHERE tool_id = ?", (tool_id,)).fetchone()
+    measures = con.execute(
+        "SELECT * FROM measure WHERE tool_id = ? ORDER BY grade_lo, grade_hi, measure", (tool_id,)).fetchall()
     licenses = con.execute(
         "SELECT grade_lo, grade_hi, note FROM tool_license WHERE tool_id = ? ORDER BY grade_lo", (tool_id,)).fetchall()
     # where the tool is used (Q7): cores, screeners, and the three protocol columns
@@ -425,12 +430,13 @@ def tool(tool_id):
         """SELECT d.id, d.chart, d.subject, d.grp, d.name, td.measure
            FROM dimension d LEFT JOIN tool_dimension td ON td.dimension_id = d.id AND td.tool_id = ?
            ORDER BY d.sort""", (tool_id,)).fetchall()
-    # measure display order: by the grades the measure covers on the screening chart, then name
-    measure_rank = {n["measure"]: (n["grade"],) for n in reversed(ncii)}  # min grade (ncii is sorted by grade)
+    # measure display order: as the measure table orders them (grades covered, then name)
+    measure_rank = {m["measure"]: (i,) for i, m in enumerate(measures)}
     subject_label = {'reading': 'Reading', 'writing': 'Spelling & written expression', 'math': 'Mathematics'}
     dimensions = []
     for chart, label in (('screening', 'NCII screening page: what skills does the tool screen?'),
-                         ('pm', 'NCII progress monitoring page: what dimensions does the tool assess?')):
+                         ('pm', 'NCII progress monitoring page: what dimensions does the tool assess?'),
+                         ('intervention', 'NCII intervention page: area of focus')):
         rows = [d for d in dims if d["chart"] == chart]
         sel = {}                               # dimension id -> set of measures selected
         for d in rows:
@@ -439,7 +445,7 @@ def tool(tool_id):
         if not sel:
             continue
         subjects = {d["subject"] for d in rows if d["id"] in sel}
-        measures = sorted({m for ms in sel.values() for m in ms},
+        sel_measures = sorted({m for ms in sel.values() for m in ms},
                           key=lambda m: (measure_rank.get(m, (99,)), m))
         groups = OrderedDict()                 # heading -> [(name, set of measures)]
         seen = set()                           # the join repeats a dimension once per selected measure
@@ -449,11 +455,14 @@ def tool(tool_id):
             seen.add(d["id"])
             heading = d["grp"] or subject_label[d["subject"]]
             groups.setdefault(heading, []).append((d["name"], sel.get(d["id"], set())))
-        dimensions.append({"chart": chart, "label": label, "measures": measures,
-                           "per_measure": measures != ['-'], "groups": groups,
+        # one measure (or the whole tool): a checklist; several: a measure x item grid
+        dimensions.append({"chart": chart, "label": label, "measures": sel_measures,
+                           "per_measure": len(sel_measures) > 1, "groups": groups,
+                           "measure": sel_measures[0] if len(sel_measures) == 1 and sel_measures[0] != '-' else None,
                            "skipped": [subject_label[x] for x in ('reading', 'writing', 'math')
                                        if x not in subjects and any(d["subject"] == x for d in rows)]})
-    return render_template("tool.html", tool=t, licenses=licenses, uses=uses, ncii=ncii, ncii_pm=ncii_pm,
+    return render_template("tool.html", tool=t, profile=profile, measures=measures, licenses=licenses, uses=uses,
+                           ncii=ncii, ncii_pm=ncii_pm,
                            ncii_iv=ncii_iv, evidence=evidence, dimensions=dimensions,
                            all_areas=all_areas(con), tier_label=tier_label)
 
@@ -526,7 +535,8 @@ def soft_warnings(con, area_id, vals):
             warns.append(f"{label} {name} is {where}; this area is grades "
                          f"{grade_span(a['grade_lo'], a['grade_hi'])}. (Q1 budget list)")
     if vals.get("program_id"):
-        d = con.execute("SELECT name, minutes, min_per_week, max_group FROM tool WHERE id = ?",
+        d = con.execute("""SELECT t.name, pr.minutes, pr.min_per_week, pr.max_group
+                           FROM tool t LEFT JOIN tool_profile pr ON pr.tool_id = t.id WHERE t.id = ?""",
                         (vals["program_id"],)).fetchone()
         if d:
             for w in design_check(vals.get("dosage"), vals.get("group_size"), d["minutes"], d["min_per_week"], d["max_group"]):

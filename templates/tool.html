@@ -5,23 +5,30 @@
 {% endblock %}
 {% block body %}
 <h1>{{ tool.name }}
-  <small>{{ tool.vendor or '' }}{% if tool.minutes %} · {{ tool.minutes }} min{% endif %} · <code>{{ tool.id }}</code></small></h1>
+  <small>{{ tool.vendor or '' }}{% if profile and profile.minutes %} · {{ profile.minutes }} min{% endif %} · <code>{{ tool.id }}</code></small></h1>
 {% if tool.notes %}<p class="lede">{{ tool.notes }}{% if tool.url %} <a href="{{ tool.url }}">{{ tool.url }}</a>{% endif %}</p>
 {% elif tool.url %}<p class="lede"><a href="{{ tool.url }}">{{ tool.url }}</a></p>{% endif %}
 
 <section class="setup three">
   <div>
-    <h3>Design <small class="muted">(publisher's minimums)</small></h3>
-    {% if tool.minutes or tool.design_group or tool.min_per_week or tool.interventionist or tool.training or tool.grade_lo is not none %}
+    <h3>Vendor's profile <small class="muted">(the publisher's claims, in NCII's terms)</small></h3>
+    {% if profile %}
+    {% if profile.description %}<p class="small">{{ profile.description }}</p>{% endif %}
     <dl class="design">
-      {% if tool.design_group or tool.max_group %}<dt>Group size</dt><dd>{{ tool.design_group or '' }}{% if tool.max_group %} <span class="muted">(max {{ tool.max_group }})</span>{% endif %}</dd>{% endif %}
-      {% if tool.minutes or tool.min_per_week or tool.min_weeks %}<dt>Dose</dt><dd>{% if tool.minutes %}{{ tool.minutes }} min{% endif %}{% if tool.min_per_week %}, {{ tool.min_per_week }}× a week{% endif %}{% if tool.min_weeks %}, {{ tool.min_weeks }} weeks{% endif %}</dd>{% endif %}
-      {% if tool.interventionist %}<dt>Delivered by</dt><dd>{{ tool.interventionist }}</dd>{% endif %}
-      {% if tool.training %}<dt>Training</dt><dd>{{ tool.training }}</dd>{% endif %}
-      {% if tool.grade_lo is not none %}<dt>Grades</dt><dd>{{ tool.grade_lo|grade_span(tool.grade_hi) }}</dd>{% endif %}
-      {% if tool.design_source %}<dt>Source</dt><dd class="muted">{{ tool.design_source }}</dd>{% endif %}
+      {% if profile.grade_lo is not none %}<dt>Grades</dt><dd>{{ profile.grade_lo|grade_span(profile.grade_hi) }}</dd>{% endif %}
+      {% if profile.intended_for %}<dt>Intended for</dt><dd>{{ profile.intended_for }}</dd>{% endif %}
+      {% if profile.setting or profile.max_group %}<dt>Setting</dt><dd>{{ profile.setting or '' }}{% if profile.max_group %} <span class="muted">(max {{ profile.max_group }})</span>{% endif %}</dd>{% endif %}
+      {% if profile.minutes or profile.min_per_week or profile.min_weeks %}<dt>Minimum dose</dt><dd>{% if profile.minutes %}{{ profile.minutes }} min{% endif %}{% if profile.min_per_week %}, {{ profile.min_per_week }}× a week{% endif %}{% if profile.min_weeks %}, {{ profile.min_weeks }} weeks{% endif %}</dd>{% endif %}
+      {% if profile.interventionist %}<dt>Qualified staff</dt><dd>{{ profile.interventionist }}</dd>{% endif %}
+      {% if profile.training %}<dt>Training</dt><dd>{{ profile.training }}</dd>{% endif %}
+      {% if profile.support %}<dt>Support</dt><dd>{{ profile.support }}</dd>{% endif %}
+      {% if profile.cost %}<dt>Cost</dt><dd>{{ profile.cost }}</dd>{% endif %}
+      {% if profile.technology %}<dt>Technology</dt><dd>{{ profile.technology }}</dd>{% endif %}
+      {% if profile.manual or profile.fidelity_checklist %}<dt>Manual</dt><dd>{% if profile.manual %}detailed manual: {{ profile.manual }}{% endif %}{% if profile.fidelity_checklist %}; fidelity checklist: {{ profile.fidelity_checklist }}{% endif %}</dd>{% endif %}
+      {% if profile.obtain %}<dt>Obtain</dt><dd>{{ profile.obtain }}</dd>{% endif %}
+      {% if profile.source %}<dt>Source</dt><dd class="muted">{% if profile.url %}<a href="{{ profile.url }}">{{ profile.source }}</a>{% else %}{{ profile.source }}{% endif %}{% if profile.as_of %} · {{ profile.as_of }}{% endif %}</dd>{% endif %}
     </dl>
-    {% else %}<p class="muted">No design recorded.</p>{% endif %}
+    {% else %}<p class="muted">No vendor profile recorded.</p>{% endif %}
     <h3 style="margin-top:14px">Evidence <small class="muted">(what each reviewer found)</small></h3>
     {% if evidence %}<ul class="evidence">{% for e in evidence %}
       <li><strong>{{ {'ncii':'NCII','wwc':'WWC','essa':'Evidence for ESSA','publisher':'Publisher','study':'Study','other':'Other'}[e.source] }}</strong>: {% if e.url %}<a href="{{ e.url }}">{{ e.finding }}</a>{% else %}{{ e.finding }}{% endif %}{% if e.domain %} <span class="muted">· {{ e.domain }}</span>{% endif %}{% if e.grades %} <span class="muted">· grades {{ e.grades }}</span>{% endif %}{% if e.as_of %} <span class="muted">· {{ e.as_of }}</span>{% endif %}{% if e.notes %}<div class="note muted">{{ e.notes }}</div>{% endif %}</li>
@@ -49,9 +56,26 @@
   </div>
 </section>
 
-<h2>Dimensions assessed <small>NCII's own list; checked = selected on the tool's NCII page</small></h2>
+{% if measures %}
+<h2>Measures <small>the vendor's description of each instrument, as NCII reprints it</small></h2>
+<div class="scroll">
+<table class="ncii">
+  <thead><tr><th>Measure</th><th>Grades</th><th>Admin format</th><th>Time</th><th>Scoring</th><th>Decision rules</th><th>Multiple rules</th><th>ROI &amp; EOY</th><th>Description</th><th>Source</th></tr></thead>
+  <tbody>{% for m in measures %}
+    <tr><td>{% if m.url %}<a href="{{ m.url }}">{{ m.measure }}</a>{% else %}{{ m.measure }}{% endif %}</td>
+        <td>{% if m.grade_lo is not none %}{{ m.grade_lo|grade_span(m.grade_hi) }}{% endif %}</td>
+        <td>{{ m.admin_format or '' }}</td><td>{{ m.admin_time or '' }}</td><td>{{ m.scoring_format or '' }}</td>
+        <td>{{ m.decision_rules or '' }}</td><td>{{ m.multi_rules_evidence or '' }}</td><td>{{ m.roi_eoy or '' }}</td>
+        <td class="small">{{ m.description or '' }}{% if m.notes %} <span class="muted">{{ m.notes }}</span>{% endif %}</td>
+        <td class="muted small">{{ m.source or '' }}{% if m.as_of %} · {{ m.as_of }}{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
+{% endif %}
+
+<h2>Dimensions assessed <small>NCII's own list; checked = what the vendor's submission selected</small></h2>
 {% for set in dimensions %}
-<h3 class="dimset">{{ set.label }}</h3>
+<h3 class="dimset">{{ set.label }}{% if set.measure %} <span class="muted">· {{ set.measure }}</span>{% endif %}</h3>
 {% if set.per_measure %}
 <table class="ncii dimgrid">
   <thead><tr><th>Skill</th>{% for m in set.measures %}<th>{{ m }}</th>{% endfor %}</tr></thead>
@@ -78,20 +102,19 @@
 {% else %}<p class="muted">No NCII dimensions recorded for this tool.</p>{% endfor %}
 
 <h2>NCII academic screening tools chart
-  <small>one row per measure and grade, as <a href="{{ NCII_SCREENING_URL }}">the chart</a> lists it</small></h2>
+  <small>NCII's findings, one row per measure and grade, as <a href="{{ NCII_SCREENING_URL }}">the chart</a> lists it; the vendor's usability columns are under Measures</small></h2>
 {% if ncii %}
 <div class="scroll">
 <table class="ncii">
   <thead>
     <tr><th rowspan="2">Measure</th><th rowspan="2">Grade</th>
-        <th colspan="3">Classification accuracy</th><th colspan="4">Technical standards</th><th colspan="5">Usability features</th>
+        <th colspan="3">Classification accuracy</th><th colspan="4">Technical standards</th>
         <th rowspan="2">As of</th></tr>
     <tr><th>Fall</th><th>Winter</th><th>Spring</th>
-        <th>Reliability</th><th>Validity</th><th>Sample</th><th>Bias analysis</th>
-        <th>Admin format</th><th>Time</th><th>Scoring</th><th>Decision rules</th><th>Multiple rules</th></tr>
+        <th>Reliability</th><th>Validity</th><th>Sample</th><th>Bias analysis</th></tr>
   </thead>
   <tbody>{% for n in ncii %}
-    <tr><td>{% if n.url %}<a href="{{ n.url }}">{{ n.measure }}</a>{% else %}{{ n.measure }}{% endif %}</td>
+    <tr><td>{{ n.measure }}</td>
         <td>{{ n.grade|grade_span(n.grade) }}</td>
         <td class="c">{{ bubble(n.ca_fall, n.ca_fall_d) }}</td>
         <td class="c">{{ bubble(n.ca_winter, n.ca_winter_d) }}</td>
@@ -100,11 +123,6 @@
         <td class="c">{{ bubble(n.validity) }}</td>
         <td>{{ n.sample_rep or '' }}</td>
         <td>{{ n.bias_analysis or '' }}</td>
-        <td>{{ n.admin_format or '' }}</td>
-        <td>{{ n.admin_time or '' }}</td>
-        <td>{{ n.scoring_format or '' }}</td>
-        <td>{{ n.decision_rules or '' }}</td>
-        <td>{{ n.multi_rules_evidence or '' }}</td>
         <td class="muted">{{ n.as_of or '' }}</td></tr>
   {% endfor %}</tbody>
 </table>
@@ -116,21 +134,20 @@
 {% endif %}
 
 <h2>NCII academic progress monitoring tools chart
-  <small>one row per measure, grade and measure type, as <a href="{{ NCII_PM_URL }}">the chart</a> lists it</small></h2>
+  <small>NCII's findings, one row per measure, grade and measure type, as <a href="{{ NCII_PM_URL }}">the chart</a> lists it</small></h2>
 {% if ncii_pm %}
 <div class="scroll">
 <table class="ncii">
   <thead>
     <tr><th rowspan="2">Measure</th><th rowspan="2">Grade</th><th rowspan="2">Type</th>
-        <th colspan="3">Performance level standards</th><th colspan="5">Growth standards</th><th colspan="4">Usability</th>
+        <th colspan="3">Performance level standards</th><th colspan="5">Growth standards</th>
         <th rowspan="2">As of</th></tr>
     <tr><th>Reliability</th><th>Validity</th><th>Bias analysis</th>
         <th title="Sensitivity: reliability of slope">Slope reliability</th><th title="Sensitivity: validity of slope">Slope validity</th><th>Alternate forms</th>
-        <th title="Decision rules: setting and revising goals">Goal rules</th><th title="Decision rules: changing instruction">Instruction rules</th>
-        <th>Admin format</th><th>Time</th><th>Scoring</th><th>ROI &amp; EOY</th></tr>
+        <th title="Decision rules: setting and revising goals">Goal rules</th><th title="Decision rules: changing instruction">Instruction rules</th></tr>
   </thead>
   <tbody>{% for n in ncii_pm %}
-    <tr><td>{% if n.url %}<a href="{{ n.url }}">{{ n.measure }}</a>{% else %}{{ n.measure }}{% endif %}</td>
+    <tr><td>{{ n.measure }}</td>
         <td>{{ n.grade|grade_span(n.grade) }}</td>
         <td>{{ n.measure_type }}</td>
         <td class="c">{{ bubble(n.reliability) }}</td>
@@ -141,10 +158,6 @@
         <td class="c">{{ bubble(n.alt_forms) }}</td>
         <td class="c">{{ bubble(n.rules_goals) }}</td>
         <td class="c">{{ bubble(n.rules_instruction) }}</td>
-        <td>{{ n.admin_format or '' }}</td>
-        <td>{{ n.admin_time or '' }}</td>
-        <td>{{ n.scoring_format or '' }}</td>
-        <td>{{ n.roi_eoy or '' }}</td>
         <td class="muted">{{ n.as_of or '' }}</td></tr>
   {% endfor %}</tbody>
 </table>
@@ -155,18 +168,16 @@
 {% endif %}
 
 <h2>NCII academic intervention tools chart
-  <small>one row per study, as <a href="{{ NCII_INTERVENTION_URL }}">the chart</a> lists it</small></h2>
+  <small>NCII's ratings, one row per study, as <a href="{{ NCII_INTERVENTION_URL }}">the chart</a> lists it</small></h2>
 {% if ncii_iv %}
 <div class="scroll">
 <table class="ncii">
   <thead>
     <tr><th rowspan="2">Study</th><th rowspan="2">Type</th>
-        <th colspan="4">Quality of design &amp; results</th><th colspan="5">Quality of other indicators</th><th colspan="4">Intensity</th><th colspan="2">Additional research</th>
+        <th colspan="4">Quality of design &amp; results</th><th colspan="5">Quality of other indicators</th>
         <th rowspan="2">As of</th></tr>
     <tr><th>Design</th><th title="Average effect size, targeted / broader measures">ES targeted / broader</th><th title="Disaggregated ES data available">Disagg. ES</th><th>Visual analysis</th>
-        <th>Participants</th><th title="Fidelity of implementation">Fidelity</th><th>Targeted measures</th><th>Broader measures</th><th title="Number of outcome measures">Outcome measures</th>
-        <th>Group size</th><th>Duration</th><th title="Minimum interventionist requirements">Interventionist</th><th title="Minimum training requirements">Training</th>
-        <th title="Intervention reviewed by WWC or E-ESSA">WWC / E-ESSA</th><th title="Other research potentially eligible for NCII review">Other research</th></tr>
+        <th>Participants</th><th title="Fidelity of implementation">Fidelity</th><th>Targeted measures</th><th>Broader measures</th><th title="Number of outcome measures">Outcome measures</th></tr>
   </thead>
   <tbody>{% for n in ncii_iv %}
     <tr><td>{% if n.url %}<a href="{{ n.url }}">{{ n.study }}</a>{% else %}{{ n.study }}{% endif %}</td>
@@ -180,18 +191,26 @@
         <td class="c">{{ bubble(n.targeted_measures) }}</td>
         <td class="c">{{ bubble(n.broader_measures) }}</td>
         <td>{{ n.n_outcome_measures or '' }}</td>
-        <td>{{ n.admin_group_size or '' }}</td>
-        <td>{{ n.duration or '' }}</td>
-        <td>{{ n.interventionist or '' }}</td>
-        <td>{{ n.training or '' }}</td>
-        <td>{{ n.wwc_essa or '' }}</td>
-        <td>{{ n.other_research or '' }}</td>
         <td class="muted">{{ n.as_of or '' }}</td></tr>
   {% endfor %}</tbody>
 </table>
 </div>
 <p class="legend">{% for key, (sym, label) in NCII_RATINGS.items() %}<span class="bubble {{ key }}">{{ sym }}</span> {{ label }} &nbsp; {% endfor %}<span class="bubble unavailable">NA</span> Not applicable &nbsp; blank: not entered.
-  Effect sizes as printed: * includes a significant effect; † could not be computed; -- no measures submitted.</p>
+  Effect sizes as printed: * includes a significant effect; † could not be computed; -- no measures submitted.
+  The chart's Intensity columns are the vendor's design, shown under Vendor's profile; its WWC / E-ESSA column is under Evidence.</p>
+
+<h3 class="dimset">What each study actually did</h3>
+<div class="scroll">
+<table class="ncii">
+  <thead><tr><th>Study</th><th>Grades</th><th>Sample</th><th>Assignment</th><th>Dose as run</th><th>Group</th><th>Delivered by</th><th>Notes</th></tr></thead>
+  <tbody>{% for n in ncii_iv %}
+    <tr><td>{{ n.study }}</td><td>{{ n.grades or '' }}</td>
+        <td class="small">{{ n.sample or '' }}</td><td class="small">{{ n.assignment or '' }}</td>
+        <td>{% if n.minutes or n.per_week or n.weeks %}{{ n.minutes or '?' }} min × {{ n.per_week or '?' }}/wk × {{ n.weeks or '?' }} wk{% endif %}</td>
+        <td>{{ n.group_size or '' }}</td><td class="small">{{ n.deliverer or '' }}</td><td class="small">{{ n.notes or '' }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
 {% else %}
 <p class="muted">No NCII intervention studies recorded. A program with no rows here is not on the chart, or has not been entered yet.</p>
 {% endif %}
