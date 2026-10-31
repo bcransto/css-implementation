@@ -58,6 +58,7 @@ FIELDS = [
     ("entry_rule", "Intervention entry rule"),
     ("placement", "Placement test"),
     ("program", "Program"),
+    ("instruction", "What happens"),
     ("deliverer_role", "Delivered by"),
     ("dosage", "Dosage"),
     ("group_size", "Group size"),
@@ -77,7 +78,7 @@ BASES = ["defined", "observed"]
 TOOL_COLS = [("placement_tool_id", "Placement test"), ("program_id", "Program"), ("pm_tool_id", "PM tool")]
 # every editable column of protocol except id and area_id
 EDIT_COLS = [
-    "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role", "deliverer_id",
+    "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role", "deliverer_id", "instruction",
     "placement_tool_id", "program_id", "pm_tool_id", "pm_metric", "entry_rule",
     "dosage", "group_size", "weeks", "pm_rule", "review_rule", "exit_rule",
     "next_step_id", "nonresponse_id", "status", "status_note", "citations",
@@ -226,7 +227,7 @@ SELECT p.id, p.tier, p.teacher, i.name AS teacher_name, p.basis, p.as_of, p.evid
        pg.name AS program,   pg.notes AS program_notes,   p.program_id,
        pgp.minutes AS design_minutes, pgp.min_per_week AS design_per_week, pgp.max_group AS design_max_group,
        pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
-       p.pm_metric, p.entry_rule, p.deliverer_role, p.dosage, p.group_size, p.weeks,
+       p.pm_metric, p.entry_rule, p.deliverer_role, p.instruction, p.dosage, p.group_size, p.weeks,
        p.pm_rule, p.review_rule, p.exit_rule,
        nx.kind AS next_kind, nx.tier AS next_tier, nx.description AS next_desc,
        nr.kind AS nr_kind,   nr.tier AS nr_tier,   nr.description AS nr_desc,

@@ -46,6 +46,8 @@
   <label>Program
     <select name="program_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.program_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
+  <label class="wide">What happens <textarea name="instruction" rows="2">{{ vals.instruction or '' }}</textarea>
+    <small>what the instruction looks like: Tier 1, the core block beyond the program's name; Tier 2+, what a session contains</small></label>
   <label>Delivered by <input name="deliverer_role" value="{{ vals.deliverer_role or '' }}" placeholder="trained para"><small>the role</small></label>
   <label>Delivered by whom
     <select name="deliverer_id"><option value="">—</option>

@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.12
+-- MTSS tier-definition schema, v0.13
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -24,6 +24,7 @@
 --   only NCII's findings; ncii_intervention gains the study's own facts; the intervention checklist joins dimension.
 -- v0.12: instructor (the people) and instructor_tool (their training). profile.teacher and protocol.teacher
 --   reference it; '-' stays the sentinel. protocol.deliverer_id names the person when there is one.
+-- v0.13: protocol.instruction, prose for what the instruction looks like (core block at Tier 1, a session at Tier 2+).
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -316,6 +317,7 @@ CREATE TABLE protocol (
   deliverer_id TEXT REFERENCES instructor(id),  -- the named person, when there is one (observed rows)
   placement_tool_id TEXT REFERENCES tool(id),
   program_id  TEXT REFERENCES tool(id),
+  instruction TEXT,                       -- what it looks like: Tier 1 the core block; Tier 2+ what a session contains
   pm_tool_id  TEXT REFERENCES tool(id),
   pm_metric   TEXT,
   entry_rule  TEXT,                       -- Tier 1: the flag rule

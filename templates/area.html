@@ -51,6 +51,7 @@
         {% if col and (col.cells.deliverer_role.text or col.cells.dosage.text) %}
           <div class="sub">{{ col.cells.deliverer_role.text or '' }}{% if col.cells.deliverer_role.text and col.cells.dosage.text %} · {% endif %}{% if col.cells.dosage.text %}{{ value(col.cells.dosage) }}{% endif %}</div>
         {% endif %}
+        {% if col and col.cells.instruction.text %}<div class="sub">{{ col.cells.instruction.text }}</div>{% endif %}
       </td>
     </tr>
     <tr>
