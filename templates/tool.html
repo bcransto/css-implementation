@@ -73,7 +73,7 @@
 </div>
 {% endif %}
 
-<h2>Dimensions assessed <small>NCII's own list; checked = what the vendor's submission selected</small></h2>
+<h2>Dimensions assessed <small>NCII's own list; checked = what the vendor claims, per its NCII submission or the publisher's pages</small></h2>
 {% for set in dimensions %}
 <h3 class="dimset">{{ set.label }}{% if set.measure %} <span class="muted">· {{ set.measure }}</span>{% endif %}</h3>
 {% if set.per_measure %}
