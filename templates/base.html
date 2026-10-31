@@ -10,6 +10,7 @@
 <header class="top">
   <a class="brand" href="{{ url_for('index') }}">Carlisle System of Support · tier definitions</a>
   <nav>{% block nav %}{% endblock %}</nav>
+  <a class="toplink" href="{{ url_for('instructors') }}">instructors</a>
   <span class="auth">
     {% if logged_in() %}<form method="post" action="{{ url_for('logout') }}"><span class="muted">editing</span> <button type="submit" class="link">sign out</button></form>
     {% elif editing_enabled() %}<a href="{{ url_for('login', next=request.path) }}">sign in to edit</a>

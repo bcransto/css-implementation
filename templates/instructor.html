@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ who.name }} · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>{{ who.name }}
+  <small>{% if who.full_name %}{{ who.full_name }} · {% endif %}<a href="{{ url_for('instructors') }}">all instructors</a> · <code>{{ who.id }}</code></small>
+  {% if logged_in() %}<a class="btn" href="{{ url_for('instructor_edit', instructor_id=who.id) }}">Edit</a>{% endif %}</h1>
+{% if who.notes %}<p class="lede">{{ who.notes }}</p>{% endif %}
+
+<section class="setup three">
+  <div>
+    <h3>Who</h3>
+    <dl class="design">
+      <dt>Role</dt><dd>{{ who.role or '—' }}</dd>
+      <dt>Teaches</dt><dd>{{ who.subject or '' }}{% if who.grade_lo is not none %} {{ who.grade_lo|grade_span(who.grade_hi) }}{% endif %}{% if not who.subject and who.grade_lo is none %}—{% endif %}</dd>
+      <dt>FLEX duty</dt><dd>{% if who.flex_duty == 1 %}yes{% elif who.flex_duty == 0 %}no{% else %}<span class="muted">not asked</span>{% endif %}</dd>
+      <dt>Interviewed</dt><dd>{{ who.interviewed_on or '—' }}</dd>
+    </dl>
+  </div>
+  <div>
+    <h3>Trained in</h3>
+    {% if training %}<ul>{% for t in training %}<li><a href="{{ url_for('tool', tool_id=t.tool_id) }}">{{ t.name }}</a>{% if t.trained_on %} <span class="muted">{{ t.trained_on }}</span>{% endif %}{% if t.note %}<div class="note muted">{{ t.note }}</div>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">None recorded.</p>{% endif %}
+  </div>
+  <div>
+    <h3>Delivers</h3>
+    {% if delivers %}<ul>{% for d in delivers %}
+      <li><a href="{{ url_for('area', area_id=d.area_id) }}#{{ 'observed' if d.teacher != '-' else 'defined' }}">{{ d.subject }} {{ d.grade_lo|grade_span(d.grade_hi) }}</a>, {{ tier_label(d.tier) }}, {{ d.profile }}{% if d.program %} — {{ d.program }}{% endif %}
+        {% if d.teacher != '-' and d.teacher != who.id %}<span class="pill">{{ d.teacher_name }}'s row</span>{% endif %}</li>
+    {% endfor %}</ul>
+    {% else %}<p class="muted">Not named as the deliverer on any row.</p>{% endif %}
+  </div>
+</section>
+
+<h2>Observed rows <small>what this teacher does now, by area</small></h2>
+{% if rows %}
+<table class="list">
+  <thead><tr><th>Area</th><th>Tier</th><th>Profile</th><th>Program</th><th></th><th>As of</th><th>Evidence</th>{% if logged_in() %}<th></th>{% endif %}</tr></thead>
+  <tbody>{% for r in rows %}
+  <tr>
+    <td><a href="{{ url_for('area', area_id=r.area_id) }}#observed">{{ r.subject }} {{ r.grade_lo|grade_span(r.grade_hi) }}</a></td>
+    <td>{{ tier_label(r.tier) }}</td>
+    <td>{{ r.profile }}</td>
+    <td>{% if r.program_id %}<a href="{{ url_for('tool', tool_id=r.program_id) }}">{{ r.program }}</a>{% else %}<span class="empty">—</span>{% endif %}</td>
+    <td><span class="tag {{ r.status }}">{{ r.status }}</span></td>
+    <td>{{ r.as_of or '' }}</td>
+    <td>{{ r.evidence or '' }}</td>
+    {% if logged_in() %}<td><a class="edit" href="{{ url_for('protocol_edit', protocol_id=r.id) }}">edit</a></td>{% endif %}
+  </tr>
+  {% endfor %}</tbody>
+</table>
+{% else %}<p class="muted">No observed rows yet. Add one from an area page with this person as the teacher.</p>{% endif %}
+{% endblock %}

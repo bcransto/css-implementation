@@ -29,7 +29,7 @@
     <small>profiles for this area; a teacher's profile needs the same teacher below</small></label>
   <label>Teacher
     <select name="teacher">{% for i in instructors %}<option value="{{ i.id }}" {% if (vals.teacher or '-') == i.id %}selected{% endif %}>{% if i.id == '-' %}— the area's rule{% else %}{{ i.name }}{% if i.role %} ({{ i.role }}){% endif %}{% endif %}</option>{% endfor %}</select>
-    <small>a person = what that teacher does; new people are added by SQL on pinto</small></label>
+    <small>a person = what that teacher does; <a href="{{ url_for('instructor_new') }}">add a person</a> if they are missing</small></label>
   <label>Basis
     <select name="basis">{% for b in bases %}<option value="{{ b }}" {% if vals.basis == b %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
   <label>As of <input name="as_of" value="{{ vals.as_of or '' }}" placeholder="YYYY-MM"><small>observed rows only</small></label>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{% if instructor_id %}Edit {{ instructor_id }}{% else %}New person{% endif %} · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>{% if instructor_id %}Edit <code>{{ instructor_id }}</code>{% else %}New person{% endif %}
+  <small><a href="{{ url_for('instructors') }}">all instructors</a></small></h1>
+
+{% if errors %}<div class="msg error"><strong>Not saved.</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+<form method="post" class="edit">
+<fieldset>
+  <legend>Who</legend>
+  {% if not instructor_id %}
+  <label>Id <input name="id" value="{{ request.form.get('id', '') }}" placeholder="spiegl" pattern="[a-z0-9][a-z0-9-]*" required>
+    <small>lowercase; normally the last name, a second Smith gets smith-j. Cannot be changed later</small></label>
+  {% endif %}
+  <label>Name <input name="name" value="{{ vals.name or '' }}" placeholder="Spiegl" required><small>as shown on the pages</small></label>
+  <label>Full name <input name="full_name" value="{{ vals.full_name or '' }}"><small>optional</small></label>
+  <label>Role
+    <select name="role"><option value="">—</option>
+      {% for r in roles %}<option value="{{ r }}" {% if vals.role == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Subject
+    <select name="subject"><option value="">—</option>
+      {% for s in subjects %}<option value="{{ s }}" {% if vals.subject == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+  <label>Grades
+    <span class="pair">
+      <select name="grade_lo"><option value="">—</option>{% for g in range(0, 9) %}<option value="{{ g }}" {% if vals.grade_lo == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
+      to
+      <select name="grade_hi"><option value="">—</option>{% for g in range(0, 9) %}<option value="{{ g }}" {% if vals.grade_hi == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
+    </span></label>
+  <label>FLEX duty
+    <select name="flex_duty">
+      <option value="" {% if vals.flex_duty is none %}selected{% endif %}>not asked</option>
+      <option value="1" {% if vals.flex_duty == 1 %}selected{% endif %}>yes</option>
+      <option value="0" {% if vals.flex_duty == 0 %}selected{% endif %}>no</option>
+    </select></label>
+  <label>Interviewed <input name="interviewed_on" value="{{ vals.interviewed_on or '' }}" placeholder="YYYY-MM"><small>the interview behind this person's observed rows</small></label>
+  <label class="wide">Notes <textarea name="notes" rows="2">{{ vals.notes or '' }}</textarea></label>
+</fieldset>
+
+<fieldset class="training">
+  <legend>Trained in</legend>
+  <table class="mini training">
+    <thead><tr><th>Program or tool</th><th>When</th><th>Note</th></tr></thead>
+    <tbody>
+    {% for t in training + [{}, {}] %}
+    <tr>
+      <td><select name="t_tool"><option value="">—</option>
+        {% for tl in tools %}<option value="{{ tl.id }}" {% if t.tool_id == tl.id %}selected{% endif %}>{{ tl.name }}</option>{% endfor %}</select></td>
+      <td><input name="t_on" value="{{ t.trained_on or '' }}" placeholder="2025-08"></td>
+      <td><input name="t_note" value="{{ t.note or '' }}" placeholder="Wilson launch workshop"></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <small class="muted">Rows without a tool are ignored; clear the tool to remove a row. Two blank rows are offered each time.</small>
+</fieldset>
+
+<div class="actions">
+  <button type="submit">Save</button>
+  <a href="{% if instructor_id %}{{ url_for('instructor', instructor_id=instructor_id) }}{% else %}{{ url_for('instructors') }}{% endif %}">Cancel</a>
+</div>
+</form>
+{% endblock %}

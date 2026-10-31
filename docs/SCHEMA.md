@@ -99,7 +99,7 @@ The three NCII checklists (`dimension.chart` = screening, pm, intervention) foll
 ## Invariants the app should enforce
 
 - `UNIQUE(area_id, tier, profile_id, teacher)` — works because `profile_id` and `teacher` default to `'-'`, never NULL.
-- `profile.teacher`, `protocol.teacher` and `protocol.deliverer_id` are foreign keys to `instructor`; the form offers a select, and new people are added by SQL (v0.12).
+- `profile.teacher`, `protocol.teacher` and `protocol.deliverer_id` are foreign keys to `instructor`; the protocol form offers a select; people and their training are edited at `/instructors` (v0.12).
 - A protocol's `teacher` must equal its profile's `teacher` unless the profile is `'-'`. Enforced by the `protocol_profile_scope` trigger on insert; the form should also filter the profile select by teacher.
 - A protocol's `placement_tool_id`, `program_id`, `pm_tool_id` should normally have a `tool_license` row covering the area's grades; Q1 lists violations. Do not block the insert — the violation is the finding.
 - `citations` should name ids that exist in `source`; a soft check in the form, not a FK.

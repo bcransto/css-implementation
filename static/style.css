@@ -149,3 +149,13 @@ table.grid td.nest table.mini td.ncii-cell { width: 1%; }
 table.grid.t1 { table-layout: auto; }
 .view-observed > h2.observed-head:first-child { margin-top: 12px; }
 h2.observed-head .muted { font-weight: 400; font-size: 15px; margin-left: 6px; }
+
+/* instructors */
+header a.toplink { color: var(--muted); font-size: 14px; }
+header a.toplink:hover { color: var(--fg); }
+form.edit fieldset.training { display: block; }
+form.edit table.training { width: 100%; margin-bottom: 6px; background: transparent; }
+form.edit table.training th { font-weight: 600; }
+form.edit table.training select, form.edit table.training input { width: 100%; }
+form.edit .pair { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+form.edit .pair select { flex: 1; }

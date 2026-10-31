@@ -120,6 +120,9 @@ def tier_label(tier):
     return "Outside the tiers" if tier is None else f"Tier {tier}"
 
 
+app.jinja_env.globals["tier_label"] = tier_label
+
+
 def route_label(kind, tier):
     if kind is None:
         return None
@@ -641,6 +644,167 @@ def flash_saved(protocol_id, warnings):
     flash(f"Saved {protocol_id}.", "ok")
     for w in warnings:
         flash(w, "warn")
+
+
+# ---- instructors -------------------------------------------------------------------------------
+ROLES = ["classroom teacher", "interventionist", "reading specialist", "special educator", "para", "slp", "coach", "admin"]
+SUBJECTS = ["math", "reading"]
+INSTRUCTOR_COLS = ["name", "full_name", "role", "subject", "grade_lo", "grade_hi", "flex_duty", "interviewed_on", "notes"]
+
+INSTRUCTOR_LIST = """
+SELECT i.*,
+       (SELECT group_concat(DISTINCT p.area_id) FROM protocol p WHERE p.teacher = i.id) AS areas,
+       (SELECT count(*) FROM protocol p WHERE p.teacher = i.id) AS observed_rows,
+       (SELECT group_concat(t.name, ', ') FROM instructor_tool it JOIN tool t ON t.id = it.tool_id
+          WHERE it.instructor_id = i.id) AS trained
+FROM instructor i WHERE i.id <> '-' ORDER BY i.name
+"""
+
+
+@app.route("/instructors")
+def instructors():
+    con = db()
+    return render_template("instructors.html", instructors=con.execute(INSTRUCTOR_LIST).fetchall(),
+                           all_areas=all_areas(con))
+
+
+@app.route("/instructor/<instructor_id>")
+def instructor(instructor_id):
+    con = db()
+    who = con.execute("SELECT * FROM instructor WHERE id = ? AND id <> '-'", (instructor_id,)).fetchone()
+    if who is None:
+        abort(404)
+    training = con.execute(
+        """SELECT it.tool_id, it.trained_on, it.note, t.name FROM instructor_tool it JOIN tool t ON t.id = it.tool_id
+           WHERE it.instructor_id = ? ORDER BY t.name""", (instructor_id,)).fetchall()
+    # this person's observed rows, and the rows (anyone's) that name them as the deliverer
+    rows = con.execute(
+        """SELECT p.id, p.area_id, a.subject, a.grade_lo, a.grade_hi, p.tier, pr.name AS profile, p.status, p.as_of,
+                  p.evidence, pg.name AS program, p.program_id
+           FROM protocol p JOIN area a ON a.id = p.area_id JOIN profile pr ON pr.id = p.profile_id
+           LEFT JOIN tool pg ON pg.id = p.program_id
+           WHERE p.teacher = ? ORDER BY a.grade_lo, a.subject, (p.tier IS NULL), p.tier, pr.name""", (instructor_id,)).fetchall()
+    delivers = con.execute(
+        """SELECT p.id, p.area_id, a.subject, a.grade_lo, a.grade_hi, p.tier, pr.name AS profile, p.teacher,
+                  i.name AS teacher_name, p.deliverer_role, pg.name AS program, p.program_id
+           FROM protocol p JOIN area a ON a.id = p.area_id JOIN profile pr ON pr.id = p.profile_id
+           JOIN instructor i ON i.id = p.teacher LEFT JOIN tool pg ON pg.id = p.program_id
+           WHERE p.deliverer_id = ? ORDER BY a.grade_lo, a.subject, p.tier, pr.name""", (instructor_id,)).fetchall()
+    return render_template("instructor.html", who=who, training=training, rows=rows, delivers=delivers,
+                           all_areas=all_areas(con))
+
+
+def read_instructor_form():
+    """Form -> (column values, training rows). Blank strings become NULL; training rows without a tool are dropped."""
+    vals = {}
+    for c in INSTRUCTOR_COLS:
+        v = (request.form.get(c) or "").strip()
+        vals[c] = v or None
+    for c in ("grade_lo", "grade_hi", "flex_duty"):
+        if vals[c] is not None:
+            try:
+                vals[c] = int(vals[c])
+            except ValueError:
+                vals[c] = None
+    training = []
+    for tid, on, note in zip(request.form.getlist("t_tool"), request.form.getlist("t_on"), request.form.getlist("t_note")):
+        if tid.strip():
+            training.append({"tool_id": tid.strip(), "trained_on": on.strip() or None, "note": note.strip() or None})
+    return vals, training
+
+
+def instructor_errors(con, vals, training):
+    errs = []
+    if not vals["name"]:
+        errs.append("Name is required.")
+    if vals["role"] and vals["role"] not in ROLES:
+        errs.append("Role must be one of the listed roles.")
+    if vals["subject"] and vals["subject"] not in SUBJECTS:
+        errs.append("Subject must be math or reading.")
+    if (vals["grade_lo"] is None) != (vals["grade_hi"] is None):
+        errs.append("Give both grades or neither.")
+    elif vals["grade_lo"] is not None and vals["grade_lo"] > vals["grade_hi"]:
+        errs.append("The grade range is backwards.")
+    if vals["flex_duty"] not in (None, 0, 1):
+        errs.append("FLEX duty must be yes, no or not asked.")
+    seen = set()
+    for t in training:
+        if t["tool_id"] in seen:
+            errs.append(f"'{t['tool_id']}' is listed twice under training.")
+        seen.add(t["tool_id"])
+        if not con.execute("SELECT 1 FROM tool WHERE id = ?", (t["tool_id"],)).fetchone():
+            errs.append(f"Tool '{t['tool_id']}' does not exist.")
+    return errs
+
+
+def save_training(con, instructor_id, training):
+    con.execute("DELETE FROM instructor_tool WHERE instructor_id = ?", (instructor_id,))
+    con.executemany(
+        "INSERT INTO instructor_tool (instructor_id, tool_id, trained_on, note) VALUES (?, ?, ?, ?)",
+        [(instructor_id, t["tool_id"], t["trained_on"], t["note"]) for t in training])
+
+
+def render_instructor_form(con, vals, training, instructor_id=None, errors=()):
+    return render_template(
+        "instructor_edit.html", vals=vals, training=training, instructor_id=instructor_id, errors=errors,
+        roles=ROLES, subjects=SUBJECTS, tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(),
+        all_areas=all_areas(con))
+
+
+@app.route("/instructors/new", methods=["GET", "POST"])
+@login_required
+def instructor_new():
+    con = db()
+    if request.method == "GET":
+        return render_instructor_form(con, {c: None for c in INSTRUCTOR_COLS}, [])
+    vals, training = read_instructor_form()
+    new_id = (request.form.get("id") or "").strip().lower()
+    errors = instructor_errors(con, vals, training)
+    if not ID_RE.match(new_id) or new_id == "-":
+        errors.append("Id is required: lowercase letters, digits and hyphens; normally the last name, e.g. spiegl.")
+    elif con.execute("SELECT 1 FROM instructor WHERE id = ?", (new_id,)).fetchone():
+        errors.append(f"An instructor with id '{new_id}' already exists.")
+    if errors:
+        return render_instructor_form(con, vals, training, errors=errors), 400
+    try:
+        con.execute(
+            f"INSERT INTO instructor (id, {', '.join(INSTRUCTOR_COLS)}) VALUES ({', '.join('?' * (len(INSTRUCTOR_COLS) + 1))})",
+            [new_id] + [vals[c] for c in INSTRUCTOR_COLS])
+        save_training(con, new_id, training)
+        con.commit()
+    except sqlite3.IntegrityError as e:
+        con.rollback()
+        return render_instructor_form(con, vals, training, errors=[integrity_message(e)]), 400
+    flash(f"Saved {vals['name']}.", "ok")
+    return redirect(url_for("instructor", instructor_id=new_id))
+
+
+@app.route("/instructor/<instructor_id>/edit", methods=["GET", "POST"])
+@login_required
+def instructor_edit(instructor_id):
+    con = db()
+    row = con.execute("SELECT * FROM instructor WHERE id = ? AND id <> '-'", (instructor_id,)).fetchone()
+    if row is None:
+        abort(404)
+    if request.method == "GET":
+        training = [dict(r) for r in con.execute(
+            "SELECT tool_id, trained_on, note FROM instructor_tool WHERE instructor_id = ? ORDER BY tool_id", (instructor_id,))]
+        return render_instructor_form(con, {c: row[c] for c in INSTRUCTOR_COLS}, training, instructor_id)
+    vals, training = read_instructor_form()
+    errors = instructor_errors(con, vals, training)
+    if errors:
+        return render_instructor_form(con, vals, training, instructor_id, errors), 400
+    try:
+        con.execute(
+            f"UPDATE instructor SET {', '.join(c + ' = ?' for c in INSTRUCTOR_COLS)} WHERE id = ?",
+            [vals[c] for c in INSTRUCTOR_COLS] + [instructor_id])
+        save_training(con, instructor_id, training)
+        con.commit()
+    except sqlite3.IntegrityError as e:
+        con.rollback()
+        return render_instructor_form(con, vals, training, instructor_id, [integrity_message(e)]), 400
+    flash(f"Saved {vals['name']}.", "ok")
+    return redirect(url_for("instructor", instructor_id=instructor_id))
 
 
 if __name__ == "__main__":
