@@ -385,7 +385,9 @@ def area(area_id):
         prog_ncii[tid] = con.execute(
             """SELECT study, design, targeted_measures, broader_measures, es_targeted, es_broader
                FROM ncii_intervention WHERE tool_id = ? ORDER BY study""", (tid,)).fetchall()
-    instructors = {r["id"]: r for r in con.execute("SELECT * FROM instructor")}
+    instructors = {r["id"]: dict(r, subjects=[]) for r in con.execute("SELECT * FROM instructor")}
+    for r in con.execute("SELECT instructor_id, subject FROM instructor_subject ORDER BY subject"):
+        instructors[r["instructor_id"]]["subjects"].append(r["subject"])
     examples = con.execute(
         """SELECT e.student_key, e.protocol_id, e.timeline, pr.name AS profile, p.tier
            FROM student_example e JOIN protocol p ON p.id = e.protocol_id
@@ -647,12 +649,13 @@ def flash_saved(protocol_id, warnings):
 
 
 # ---- instructors -------------------------------------------------------------------------------
-ROLES = ["classroom teacher", "interventionist", "reading specialist", "special educator", "para", "slp", "coach", "admin"]
-SUBJECTS = ["math", "reading"]
-INSTRUCTOR_COLS = ["name", "full_name", "role", "subject", "grade_lo", "grade_hi", "flex_duty", "interviewed_on", "notes"]
+ROLES = ["classroom teacher", "interventionist", "literacy specialist", "special educator", "para", "slp", "tutor", "admin"]
+SUBJECTS = ["math", "reading", "behavior"]
+INSTRUCTOR_COLS = ["name", "full_name", "role", "grade_lo", "grade_hi", "flex_duty", "interviewed_on", "notes"]
 
 INSTRUCTOR_LIST = """
 SELECT i.*,
+       (SELECT group_concat(subject, ', ') FROM (SELECT subject FROM instructor_subject WHERE instructor_id = i.id ORDER BY subject)) AS subjects,
        (SELECT group_concat(DISTINCT p.area_id) FROM protocol p WHERE p.teacher = i.id) AS areas,
        (SELECT count(*) FROM protocol p WHERE p.teacher = i.id) AS observed_rows,
        (SELECT group_concat(t.name, ', ') FROM instructor_tool it JOIN tool t ON t.id = it.tool_id
@@ -674,6 +677,8 @@ def instructor(instructor_id):
     who = con.execute("SELECT * FROM instructor WHERE id = ? AND id <> '-'", (instructor_id,)).fetchone()
     if who is None:
         abort(404)
+    subjects = [r[0] for r in con.execute(
+        "SELECT subject FROM instructor_subject WHERE instructor_id = ? ORDER BY subject", (instructor_id,))]
     training = con.execute(
         """SELECT it.tool_id, it.trained_on, it.note, t.name FROM instructor_tool it JOIN tool t ON t.id = it.tool_id
            WHERE it.instructor_id = ? ORDER BY t.name""", (instructor_id,)).fetchall()
@@ -690,12 +695,12 @@ def instructor(instructor_id):
            FROM protocol p JOIN area a ON a.id = p.area_id JOIN profile pr ON pr.id = p.profile_id
            JOIN instructor i ON i.id = p.teacher LEFT JOIN tool pg ON pg.id = p.program_id
            WHERE p.deliverer_id = ? ORDER BY a.grade_lo, a.subject, p.tier, pr.name""", (instructor_id,)).fetchall()
-    return render_template("instructor.html", who=who, training=training, rows=rows, delivers=delivers,
+    return render_template("instructor.html", who=who, subjects=subjects, training=training, rows=rows, delivers=delivers,
                            all_areas=all_areas(con))
 
 
 def read_instructor_form():
-    """Form -> (column values, training rows). Blank strings become NULL; training rows without a tool are dropped."""
+    """Form -> (column values, subjects, training rows). Blank strings become NULL; training rows without a tool are dropped."""
     vals = {}
     for c in INSTRUCTOR_COLS:
         v = (request.form.get(c) or "").strip()
@@ -706,21 +711,22 @@ def read_instructor_form():
                 vals[c] = int(vals[c])
             except ValueError:
                 vals[c] = None
+    subjects = [s for s in request.form.getlist("subject") if s]
     training = []
     for tid, on, note in zip(request.form.getlist("t_tool"), request.form.getlist("t_on"), request.form.getlist("t_note")):
         if tid.strip():
             training.append({"tool_id": tid.strip(), "trained_on": on.strip() or None, "note": note.strip() or None})
-    return vals, training
+    return vals, subjects, training
 
 
-def instructor_errors(con, vals, training):
+def instructor_errors(con, vals, subjects, training):
     errs = []
     if not vals["name"]:
         errs.append("Name is required.")
     if vals["role"] and vals["role"] not in ROLES:
         errs.append("Role must be one of the listed roles.")
-    if vals["subject"] and vals["subject"] not in SUBJECTS:
-        errs.append("Subject must be math or reading.")
+    if any(s not in SUBJECTS for s in subjects):
+        errs.append("Subjects must be from the list.")
     if (vals["grade_lo"] is None) != (vals["grade_hi"] is None):
         errs.append("Give both grades or neither.")
     elif vals["grade_lo"] is not None and vals["grade_lo"] > vals["grade_hi"]:
@@ -737,6 +743,12 @@ def instructor_errors(con, vals, training):
     return errs
 
 
+def save_subjects(con, instructor_id, subjects):
+    con.execute("DELETE FROM instructor_subject WHERE instructor_id = ?", (instructor_id,))
+    con.executemany("INSERT INTO instructor_subject (instructor_id, subject) VALUES (?, ?)",
+                    [(instructor_id, s) for s in sorted(set(subjects))])
+
+
 def save_training(con, instructor_id, training):
     con.execute("DELETE FROM instructor_tool WHERE instructor_id = ?", (instructor_id,))
     con.executemany(
@@ -744,10 +756,10 @@ def save_training(con, instructor_id, training):
         [(instructor_id, t["tool_id"], t["trained_on"], t["note"]) for t in training])
 
 
-def render_instructor_form(con, vals, training, instructor_id=None, errors=()):
+def render_instructor_form(con, vals, subjects, training, instructor_id=None, errors=()):
     return render_template(
-        "instructor_edit.html", vals=vals, training=training, instructor_id=instructor_id, errors=errors,
-        roles=ROLES, subjects=SUBJECTS, tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(),
+        "instructor_edit.html", vals=vals, chosen=subjects, training=training, instructor_id=instructor_id, errors=errors,
+        roles=ROLES, all_subjects=SUBJECTS, tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(),
         all_areas=all_areas(con))
 
 
@@ -756,25 +768,26 @@ def render_instructor_form(con, vals, training, instructor_id=None, errors=()):
 def instructor_new():
     con = db()
     if request.method == "GET":
-        return render_instructor_form(con, {c: None for c in INSTRUCTOR_COLS}, [])
-    vals, training = read_instructor_form()
+        return render_instructor_form(con, {c: None for c in INSTRUCTOR_COLS}, [], [])
+    vals, subjects, training = read_instructor_form()
     new_id = (request.form.get("id") or "").strip().lower()
-    errors = instructor_errors(con, vals, training)
+    errors = instructor_errors(con, vals, subjects, training)
     if not ID_RE.match(new_id) or new_id == "-":
         errors.append("Id is required: lowercase letters, digits and hyphens; normally the last name, e.g. spiegl.")
     elif con.execute("SELECT 1 FROM instructor WHERE id = ?", (new_id,)).fetchone():
         errors.append(f"An instructor with id '{new_id}' already exists.")
     if errors:
-        return render_instructor_form(con, vals, training, errors=errors), 400
+        return render_instructor_form(con, vals, subjects, training, errors=errors), 400
     try:
         con.execute(
             f"INSERT INTO instructor (id, {', '.join(INSTRUCTOR_COLS)}) VALUES ({', '.join('?' * (len(INSTRUCTOR_COLS) + 1))})",
             [new_id] + [vals[c] for c in INSTRUCTOR_COLS])
+        save_subjects(con, new_id, subjects)
         save_training(con, new_id, training)
         con.commit()
     except sqlite3.IntegrityError as e:
         con.rollback()
-        return render_instructor_form(con, vals, training, errors=[integrity_message(e)]), 400
+        return render_instructor_form(con, vals, subjects, training, errors=[integrity_message(e)]), 400
     flash(f"Saved {vals['name']}.", "ok")
     return redirect(url_for("instructor", instructor_id=new_id))
 
@@ -787,22 +800,25 @@ def instructor_edit(instructor_id):
     if row is None:
         abort(404)
     if request.method == "GET":
+        subjects = [r[0] for r in con.execute(
+            "SELECT subject FROM instructor_subject WHERE instructor_id = ? ORDER BY subject", (instructor_id,))]
         training = [dict(r) for r in con.execute(
             "SELECT tool_id, trained_on, note FROM instructor_tool WHERE instructor_id = ? ORDER BY tool_id", (instructor_id,))]
-        return render_instructor_form(con, {c: row[c] for c in INSTRUCTOR_COLS}, training, instructor_id)
-    vals, training = read_instructor_form()
-    errors = instructor_errors(con, vals, training)
+        return render_instructor_form(con, {c: row[c] for c in INSTRUCTOR_COLS}, subjects, training, instructor_id)
+    vals, subjects, training = read_instructor_form()
+    errors = instructor_errors(con, vals, subjects, training)
     if errors:
-        return render_instructor_form(con, vals, training, instructor_id, errors), 400
+        return render_instructor_form(con, vals, subjects, training, instructor_id, errors), 400
     try:
         con.execute(
             f"UPDATE instructor SET {', '.join(c + ' = ?' for c in INSTRUCTOR_COLS)} WHERE id = ?",
             [vals[c] for c in INSTRUCTOR_COLS] + [instructor_id])
+        save_subjects(con, instructor_id, subjects)
         save_training(con, instructor_id, training)
         con.commit()
     except sqlite3.IntegrityError as e:
         con.rollback()
-        return render_instructor_form(con, vals, training, instructor_id, [integrity_message(e)]), 400
+        return render_instructor_form(con, vals, subjects, training, instructor_id, [integrity_message(e)]), 400
     flash(f"Saved {vals['name']}.", "ok")
     return redirect(url_for("instructor", instructor_id=instructor_id))
 

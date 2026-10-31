@@ -21,9 +21,9 @@
   <label>Role
     <select name="role"><option value="">—</option>
       {% for r in roles %}<option value="{{ r }}" {% if vals.role == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
-  <label>Subject
-    <select name="subject"><option value="">—</option>
-      {% for s in subjects %}<option value="{{ s }}" {% if vals.subject == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+  <div class="field">Subjects
+    <span class="checks">{% for s in all_subjects %}<label class="check"><input type="checkbox" name="subject" value="{{ s }}" {% if s in chosen %}checked{% endif %}> {{ s }}</label>{% endfor %}</span>
+    <small>a tutor may cover more than one</small></div>
   <label>Grades
     <span class="pair">
       <select name="grade_lo"><option value="">—</option>{% for g in range(0, 9) %}<option value="{{ g }}" {% if vals.grade_lo == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>

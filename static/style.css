@@ -159,3 +159,7 @@ form.edit table.training th { font-weight: 600; }
 form.edit table.training select, form.edit table.training input { width: 100%; }
 form.edit .pair { display: flex; gap: 8px; align-items: center; font-weight: 400; }
 form.edit .pair select { flex: 1; }
+form.edit .field { display: grid; gap: 4px; font-size: 13px; color: #444; font-weight: 600; }
+form.edit .field small { font-weight: 400; color: var(--muted); }
+form.edit .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 7px 0; font-size: 14px; font-weight: 400; color: var(--fg); }
+form.edit .check input { margin: 0 4px 0 0; vertical-align: -1px; }

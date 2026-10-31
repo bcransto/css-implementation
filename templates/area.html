@@ -163,7 +163,7 @@
     {% for teacher in observed_teachers %}{% set tiers = by_teacher[teacher] %}
       {% set who = instructors[teacher] %}
       <h2 class="observed-head"><a href="{{ url_for('instructor', instructor_id=who.id) }}">{{ who.name }}</a>{% if who.full_name %} <span class="muted">{{ who.full_name }}</span>{% endif %}
-        <small>{{ [who.role, (who.subject ~ ' ' ~ who.grade_lo|grade_span(who.grade_hi)) if who.grade_lo is not none else who.subject,
+        <small>{{ [who.role, (who.subjects|join(', ') ~ (' ' ~ who.grade_lo|grade_span(who.grade_hi) if who.grade_lo is not none else ''))|trim,
                    ('FLEX duty' if who.flex_duty), ('interviewed ' ~ who.interviewed_on) if who.interviewed_on]|select|join(' · ') }}</small></h2>
       {% for tier, cols in tiers.items() %}
         {% if tier == 1 and cols|length == 1 %}{{ tier1(cols[0], teacher, False) }}

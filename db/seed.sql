@@ -136,7 +136,8 @@ INSERT INTO protocol(id,area_id,tier,profile_id,deliverer_role,placement_tool_id
 
 -- Observed practice (what a teacher does now). Survey rows; basis='observed', teacher = the teacher.
 -- Anne (math 6), interviewed 2026-10: screens with her own standards-based instrument, teaches and probes with ALEKS; does not use STAR Math.
-INSERT INTO instructor(id,name,role,subject,grade_lo,grade_hi,interviewed_on) VALUES ('anne','Anne','classroom teacher','math',6,6,'2026-10');
+INSERT INTO instructor(id,name,role,grade_lo,grade_hi,interviewed_on) VALUES ('anne','Anne','classroom teacher',6,6,'2026-10');
+INSERT INTO instructor_subject VALUES ('anne','math');
 INSERT INTO profile(id,area_id,teacher,basis,name,sort_rule) VALUES
 ('m6-anne-facts','math-6','anne','observed','can''t do facts','teacher judgment from class work');
 INSERT INTO protocol(id,area_id,tier,profile_id,teacher,basis,as_of,evidence,deliverer_role,program_id,pm_tool_id,pm_metric,entry_rule,dosage,group_size,weeks,pm_rule,review_rule,exit_rule,next_step_id,nonresponse_id,status,status_note) VALUES

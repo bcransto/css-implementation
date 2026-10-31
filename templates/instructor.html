@@ -14,7 +14,7 @@
     <h3>Who</h3>
     <dl class="design">
       <dt>Role</dt><dd>{{ who.role or '—' }}</dd>
-      <dt>Teaches</dt><dd>{{ who.subject or '' }}{% if who.grade_lo is not none %} {{ who.grade_lo|grade_span(who.grade_hi) }}{% endif %}{% if not who.subject and who.grade_lo is none %}—{% endif %}</dd>
+      <dt>Teaches</dt><dd>{{ subjects|join(', ') }}{% if who.grade_lo is not none %} {{ who.grade_lo|grade_span(who.grade_hi) }}{% endif %}{% if not subjects and who.grade_lo is none %}—{% endif %}</dd>
       <dt>FLEX duty</dt><dd>{% if who.flex_duty == 1 %}yes{% elif who.flex_duty == 0 %}no{% else %}<span class="muted">not asked</span>{% endif %}</dd>
       <dt>Interviewed</dt><dd>{{ who.interviewed_on or '—' }}</dd>
     </dl>

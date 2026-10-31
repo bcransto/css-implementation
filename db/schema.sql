@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.13
+-- MTSS tier-definition schema, v0.14
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -25,6 +25,8 @@
 -- v0.12: instructor (the people) and instructor_tool (their training). profile.teacher and protocol.teacher
 --   reference it; '-' stays the sentinel. protocol.deliverer_id names the person when there is one.
 -- v0.13: protocol.instruction, prose for what the instruction looks like (core block at Tier 1, a session at Tier 2+).
+-- v0.14: instructor roles 'tutor' and 'literacy specialist' (for 'coach', 'reading specialist'); instructor.subject
+--   becomes instructor_subject because a tutor can cover both math and reading.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -262,13 +264,19 @@ CREATE TABLE instructor (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,              -- as shown on the page: 'Spiegl'
   full_name   TEXT,
-  role        TEXT CHECK (role IN ('classroom teacher','interventionist','reading specialist','special educator','para','slp','coach','admin')),
-  subject     TEXT,                       -- 'math' | 'reading' | NULL = both / not applicable
+  role        TEXT CHECK (role IN ('classroom teacher','interventionist','literacy specialist','special educator','para','slp','tutor','admin')),
   grade_lo    INTEGER,                    -- grades taught; K = 0
   grade_hi    INTEGER,
   flex_duty   INTEGER,                    -- 1 = staffs the FLEX block, 0 = does not, NULL = not asked
   interviewed_on TEXT,                    -- YYYY-MM(-DD) of the interview behind this person's observed rows
   notes       TEXT                        -- prose
+);
+
+-- the subjects a person covers; a tutor can have two. No row = not recorded.
+CREATE TABLE instructor_subject (
+  instructor_id TEXT NOT NULL REFERENCES instructor(id),
+  subject     TEXT NOT NULL CHECK (subject IN ('math','reading','behavior')),
+  PRIMARY KEY (instructor_id, subject)
 );
 
 -- which programs or instruments a person is trained to deliver; no row = not trained, or not asked
@@ -352,7 +360,7 @@ CREATE TABLE student_example (
 
 -- sentinels: whole-class rows use profile '-', the area's own rows use instructor '-'
 INSERT INTO area VALUES ('-', '-', 0, 0, 0);
-INSERT INTO instructor VALUES ('-', '-', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO instructor VALUES ('-', '-', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');
 
 -- NCII's academic dimension list (tool detail pages). NCII's page misspells "Writting"; corrected here.

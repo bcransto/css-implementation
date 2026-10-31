@@ -15,7 +15,7 @@
   <tr>
     <td><a href="{{ url_for('instructor', instructor_id=i.id) }}">{{ i.name }}</a>{% if i.full_name %} <span class="muted">{{ i.full_name }}</span>{% endif %}</td>
     <td>{{ i.role or '' }}</td>
-    <td>{{ i.subject or '' }}{% if i.grade_lo is not none %} {{ i.grade_lo|grade_span(i.grade_hi) }}{% endif %}</td>
+    <td>{{ i.subjects or '' }}{% if i.grade_lo is not none %} {{ i.grade_lo|grade_span(i.grade_hi) }}{% endif %}</td>
     <td>{% if i.flex_duty == 1 %}yes{% elif i.flex_duty == 0 %}no{% else %}<span class="muted">—</span>{% endif %}</td>
     <td>{{ i.interviewed_on or '' }}</td>
     <td>{% for aid in (i.areas or '').split(',') if aid %}<a href="{{ url_for('area', area_id=aid) }}#observed">{{ aid }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">—</span>{% endfor %}</td>
