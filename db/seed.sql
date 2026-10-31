@@ -136,11 +136,12 @@ INSERT INTO protocol(id,area_id,tier,profile_id,deliverer_role,placement_tool_id
 
 -- Observed practice (what a teacher does now). Survey rows; basis='observed', teacher = the teacher.
 -- Anne (math 6), interviewed 2026-10: screens with her own standards-based instrument, teaches and probes with ALEKS; does not use STAR Math.
+INSERT INTO instructor(id,name,role,subject,grade_lo,grade_hi,interviewed_on) VALUES ('anne','Anne','classroom teacher','math',6,6,'2026-10');
 INSERT INTO profile(id,area_id,teacher,basis,name,sort_rule) VALUES
-('m6-anne-facts','math-6','Anne','observed','can''t do facts','teacher judgment from class work');
+('m6-anne-facts','math-6','anne','observed','can''t do facts','teacher judgment from class work');
 INSERT INTO protocol(id,area_id,tier,profile_id,teacher,basis,as_of,evidence,deliverer_role,program_id,pm_tool_id,pm_metric,entry_rule,dosage,group_size,weeks,pm_rule,review_rule,exit_rule,next_step_id,nonresponse_id,status,status_note) VALUES
-('m6-anne-t1','math-6',1,'-','Anne','observed','2026-10','interview','classroom teacher','cpm','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade screener based on DESE grade 6 standards, plus ALEKS; does not use STAR Math','daily block','class','year','ALEKS progress by DESE grade 6 standard; no STAR Math',NULL,NULL,NULL,NULL,'unwritten','homemade screener and ALEKS; nothing written down'),
-('m6-anne-t2','math-6',2,'m6-anne-facts','Anne','observed','2026-10','interview','classroom teacher','aleks','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade standards screener + ALEKS + teacher judgment; not STAR Math','3 x 45 FLEX','varies','open-ended','ALEKS progress by DESE grade 6 standard; no shared measure with other teachers','none','none',NULL,'cst','unwritten','homemade screener and ALEKS; nothing written down');
+('m6-anne-t1','math-6',1,'-','anne','observed','2026-10','interview','classroom teacher','cpm','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade screener based on DESE grade 6 standards, plus ALEKS; does not use STAR Math','daily block','class','year','ALEKS progress by DESE grade 6 standard; no STAR Math',NULL,NULL,NULL,NULL,'unwritten','homemade screener and ALEKS; nothing written down'),
+('m6-anne-t2','math-6',2,'m6-anne-facts','anne','observed','2026-10','interview','classroom teacher','aleks','aleks','ALEKS topics mastered, DESE grade 6 standards','Homemade standards screener + ALEKS + teacher judgment; not STAR Math','3 x 45 FLEX','varies','open-ended','ALEKS progress by DESE grade 6 standard; no shared measure with other teachers','none','none',NULL,'cst','unwritten','homemade screener and ALEKS; nothing written down');
 
 UPDATE protocol SET placement_tool_id = 'm6-anne-screener' WHERE id = 'm6-anne-t2';
 

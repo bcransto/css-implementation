@@ -147,3 +147,5 @@ table.grid .profile .pill { margin-left: 2px; }
 table.grid td.nest table.mini th, table.grid td.nest table.mini td { min-width: 0; max-width: none; border-right: none; }
 table.grid td.nest table.mini td.ncii-cell { width: 1%; }
 table.grid.t1 { table-layout: auto; }
+.view-observed > h2.observed-head:first-child { margin-top: 12px; }
+h2.observed-head .muted { font-weight: 400; font-size: 15px; margin-left: 6px; }

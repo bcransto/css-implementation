@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.11
+# CSS tier-definition database — schema v0.12
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -36,9 +36,11 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 | `ncii_intervention` | one **study** on NCII's academic intervention tools chart: tool × study citation | same conventions; not grade-bound. NCII's ratings: design and results (design, effect sizes as printed, disaggregated ES, visual analysis), other indicators (participants, fidelity, targeted and broader measures, number of outcome measures). Then the study's own facts, as implemented: sample, grades, assignment, group size, weeks, sessions per week, minutes, who delivered it, notes. The chart's Intensity columns (the vendor's design) are on `tool_profile`; its WWC/ESSA column is in `tool_evidence` |
 | `area_core` | a core program in an area | link table: grade 3 reading has a phonics core and a comprehension core |
 | `area_screener` | one screening tool in one area for a grade range | `role` ∈ screen / level_check / on_request; `cut` is the flag threshold |
-| `profile` | a diagnostic category inside an area, for the area (`teacher '-'`) or for one teacher | `sort_rule` says how the second stage assigns it. Row `'-'` is the whole-class sentinel |
+| `instructor` | a person | id is a slug, normally the last name (`spiegl`; a second Smith gets `smith-j`); `name` is what the page shows. `role` ∈ classroom teacher / interventionist / reading specialist / special educator / para / slp / coach / admin; `subject`, `grade_lo`/`grade_hi`, `flex_duty`, `interviewed_on` (the interview behind the observed rows), `notes`. Row `'-'` is the sentinel for the area's own rule. No contact details, on purpose |
+| `instructor_tool` | a program or instrument a person is trained to deliver | `trained_on`, `note`. No row = not trained, or not asked. Answers "who is the trained para" next to `tool_license` |
+| `profile` | a diagnostic category inside an area, for the area (`teacher '-'`) or for one teacher | `teacher` references `instructor`. | `sort_rule` says how the second stage assigns it. Row `'-'` is the whole-class sentinel |
 | `route` | a destination | `kind` ∈ tier / tier1_plan / slp / cst / sped_eval / iep / carry / external / none; optional `target_area_id` for cross-building handoffs |
-| `protocol` | area × tier × profile × teacher | the page. See below |
+| `protocol` | area × tier × profile × teacher | the page; `teacher` references `instructor`. See below |
 | `source` | a citation | read-only lookup; `protocol.citations` is free text that names these ids |
 | `student_example` | an illustrative (fake) student timeline | `student_key` lets one fake student appear in two areas. Plain text, not JSON. **Never real students.** |
 
@@ -46,12 +48,13 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 
 | column | meaning | example |
 |---|---|---|
-| `teacher`, `basis` | scope: the area's defined rule, or one teacher's observed practice | `-` / `defined` |
+| `teacher` → instructor, `basis` | scope: the area's defined rule (`-`), or one teacher's observed practice | `-` / `defined` |
 | `as_of`, `evidence` | observed rows only: when recorded, and how | `2026-10` / `interview` |
 | `entry_rule` | Tier 1: the flag rule (what opens the second stage). Tier 2+: what the second stage must show | `STAR PR<25 or MCAS Partially` / `flat second stage, accuracy <95%` |
 | `placement_tool_id` | the test that places the student in the program | WIST, Bridges placement, CELF-5 Screener |
 | `program_id` | the thing delivered | Just Words |
-| `deliverer_role` | a role, not a person | `trained para` |
+| `deliverer_role` | the role, as the rule states it | `trained para`, `reading specialist or trained para` |
+| `deliverer_id` → instructor | the named person, when there is one (observed rows); the page shows `role — Name` | `cloutier` |
 | `dosage`, `group_size`, `weeks` | | `3 x 45 FLEX`, `3-5`, `12-15` |
 | `pm_tool_id`, `pm_metric` | the measure and which number from it | TMSFA one-minute read / `accuracy %` vs `wcpm` |
 | `pm_rule` | frequency, aimline, decision rule, one textarea | `biweekly; aimline to 95%; 4 below -> change` |
@@ -95,6 +98,7 @@ The three NCII checklists (`dimension.chart` = screening, pm, intervention) foll
 ## Invariants the app should enforce
 
 - `UNIQUE(area_id, tier, profile_id, teacher)` — works because `profile_id` and `teacher` default to `'-'`, never NULL.
+- `profile.teacher`, `protocol.teacher` and `protocol.deliverer_id` are foreign keys to `instructor`; the form offers a select, and new people are added by SQL (v0.12).
 - A protocol's `teacher` must equal its profile's `teacher` unless the profile is `'-'`. Enforced by the `protocol_profile_scope` trigger on insert; the form should also filter the profile select by teacher.
 - A protocol's `placement_tool_id`, `program_id`, `pm_tool_id` should normally have a `tool_license` row covering the area's grades; Q1 lists violations. Do not block the insert — the violation is the finding.
 - `citations` should name ids that exist in `source`; a soft check in the form, not a FK.
@@ -124,6 +128,8 @@ v0.10 (2026-10-31) made the dimension claim per measure. Reading DIBELS 8's seve
 
 v0.11 (2026-10-31) separated who says what. Reading Read Naturally's three NCII study pages showed that the top half of every page is the vendor's submission, reprinted unrated, and that the chart's Intensity and usability columns are that submission flattened onto every row. Decided with Brad: a `tool_profile` table for the vendor's product-level claims in NCII's own field names (so Just Words and Bridges, which NCII never reviewed, can be described in the same terms from their publishers), a `measure` table for the vendor's instrument-level claims (the unit NCII's screening and PM pages actually describe), and the `ncii_*` tables reduced to NCII's findings. The v0.8 design columns moved from `tool` to `tool_profile`; the usability columns left `ncii_screening` and `ncii_pm` for `measure`; the Intensity and WWC/ESSA columns left `ncii_intervention`, which gained the study's own facts as implemented. `ncii_screening`, `ncii_pm` and `tool_dimension` now reference `measure`. The intervention page's area-of-focus checklist became the third `dimension` list, and Read Naturally's profile, measures for DIBELS 8 and Star, the three study pages, the WWC and ESSA findings, and Read Naturally's four target skills were loaded. Applied by `db/migrations/2026-10-31-vendor-profile-measure.sql`. Follow-on noted, not done: `area_screener` still points at a tool, not a measure, so reading-35 cannot yet say "DIBELS ORF and Maze".
 
+v0.12 (2026-10-31) added `instructor` and `instructor_tool`. `teacher` had been a bare last name repeated on `profile` and `protocol`, and `deliverer_role` had grown variants like "classroom teacher (Rice herself)" to name a person. Decided with Brad: a small table of people (slug id, display name, role from a fixed list, subject and grades, FLEX duty, interview date, notes; no contact details), a training join table because "trained para" appears in four areas and nobody can say who that is, foreign keys from the two `teacher` columns, and an optional `protocol.deliverer_id` for observed rows while `deliverer_role` stays text because the defined rule names a role. Ids are the lower-cased last names; a future collision gets a longer slug, the display name is a column, so nothing has to be renamed. The five interviewed teachers were loaded and the three rows whose role already said "herself" / "only deliverer" got `deliverer_id`. Applied by `db/migrations/2026-10-31-instructor.sql`.
+
 v0.8 (2026-10-30) added the design fields on `tool` and `tool_evidence`, the design-vs-dose marker in the grid and edit form, and loaded Read Naturally's design from the chart. Applied by `db/migrations/2026-10-30-tool-design-evidence.sql`.
 
 v0.7 (2026-10-30) corrected `ncii_screening.sample_rep` to text after the first real chart export showed it is not a bubble, dropped `area.building` (the grade band implies the building), renamed tool `dibels` to DIBELS 8th Edition (the district does not use Acadience), and loaded the 36 DIBELS 8 screening rows from the chart. Applied by `db/migrations/2026-10-30-dibels8-building.sql`.
@@ -137,4 +143,4 @@ v0.7 (2026-10-30) corrected `ncii_screening.sample_rep` to text after the first 
 
 ## Seed
 
-`db/seed.sql` loads four areas (K–4 math, 3–5 reading, math 6, ELA 6), 20 tools, 8 sources, 13 defined profiles, 17 defined protocols, 4 fake students, plus the observed rows from the teacher survey (one profile and two protocols for a math 6 teacher so far). Everything tagged `proposed` is a design proposal from the research pass, not district policy.
+`db/seed.sql` loads four areas (K–4 math, 3–5 reading, math 6, ELA 6), 20 tools, 8 sources, 13 defined profiles, 17 defined protocols, 4 fake students, plus the observed rows from the teacher survey (one instructor, one profile and two protocols for a math 6 teacher so far). Everything tagged `proposed` is a design proposal from the research pass, not district policy.

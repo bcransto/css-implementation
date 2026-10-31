@@ -77,7 +77,7 @@ BASES = ["defined", "observed"]
 TOOL_COLS = [("placement_tool_id", "Placement test"), ("program_id", "Program"), ("pm_tool_id", "PM tool")]
 # every editable column of protocol except id and area_id
 EDIT_COLS = [
-    "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role",
+    "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role", "deliverer_id",
     "placement_tool_id", "program_id", "pm_tool_id", "pm_metric", "entry_rule",
     "dosage", "group_size", "weeks", "pm_rule", "review_rule", "exit_rule",
     "next_step_id", "nonresponse_id", "status", "status_note", "citations",
@@ -220,7 +220,7 @@ def logout():
 # ---------------------------------------------------------------- read view
 
 Q5_ALL_TEACHERS = """
-SELECT p.id, p.tier, p.teacher, p.basis, p.as_of, p.evidence,
+SELECT p.id, p.tier, p.teacher, i.name AS teacher_name, p.basis, p.as_of, p.evidence, d.name AS deliverer,
        pr.name AS profile, pr.sort_rule,
        pl.name AS placement, pl.notes AS placement_notes, p.placement_tool_id AS placement_id,
        pg.name AS program,   pg.notes AS program_notes,   p.program_id,
@@ -233,6 +233,8 @@ SELECT p.id, p.tier, p.teacher, p.basis, p.as_of, p.evidence,
        p.status, p.status_note, p.citations
 FROM protocol p
 JOIN profile pr ON pr.id = p.profile_id
+JOIN instructor i ON i.id = p.teacher
+LEFT JOIN instructor d ON d.id = p.deliverer_id
 LEFT JOIN tool pl ON pl.id = p.placement_tool_id
 LEFT JOIN tool pg ON pg.id = p.program_id
 LEFT JOIN tool_profile pgp ON pgp.tool_id = p.program_id
@@ -240,7 +242,7 @@ LEFT JOIN tool pm ON pm.id = p.pm_tool_id
 LEFT JOIN route nx ON nx.id = p.next_step_id
 LEFT JOIN route nr ON nr.id = p.nonresponse_id
 WHERE p.area_id = ?
-ORDER BY (p.teacher <> '-'), p.teacher, (p.tier IS NULL), p.tier, (pr.id <> '-'), pr.name
+ORDER BY (p.teacher <> '-'), i.name, (p.tier IS NULL), p.tier, (pr.id <> '-'), pr.name
 """
 
 
@@ -287,6 +289,9 @@ def cell(row, col):
         return {"text": route_label(row["next_kind"], row["next_tier"]), "note": row["next_desc"]}
     if col == "nonresponse":
         return {"text": route_label(row["nr_kind"], row["nr_tier"]), "note": row["nr_desc"]}
+    if col == "deliverer_role":  # the role, and the named person when there is one
+        role, who = row["deliverer_role"], row["deliverer"]
+        return {"text": f"{role} — {who}" if role and who else role or who, "note": None}
     if col in ("placement", "program", "pm_tool"):
         return {"text": row[col], "note": row[col + "_notes"], "tool_id": row[col + "_id"]}
     return {"text": row[col], "note": None}
@@ -376,6 +381,7 @@ def area(area_id):
         prog_ncii[tid] = con.execute(
             """SELECT study, design, targeted_measures, broader_measures, es_targeted, es_broader
                FROM ncii_intervention WHERE tool_id = ? ORDER BY study""", (tid,)).fetchall()
+    instructors = {r["id"]: r for r in con.execute("SELECT * FROM instructor")}
     examples = con.execute(
         """SELECT e.student_key, e.protocol_id, e.timeline, pr.name AS profile, p.tier
            FROM student_example e JOIN protocol p ON p.id = e.protocol_id
@@ -383,7 +389,7 @@ def area(area_id):
            WHERE p.area_id = ? ORDER BY e.student_key""", (area_id,)).fetchall()
     return render_template(
         "area.html",
-        area=a, cores=cores, screeners=screeners, examples=examples, all_areas=all_areas(con),
+        area=a, cores=cores, screeners=screeners, examples=examples, all_areas=all_areas(con), instructors=instructors,
         by_teacher=group_protocols(rows), fields=FIELDS, tier_label=tier_label, pm_ncii=pm_ncii, prog_ncii=prog_ncii,
     )
 
@@ -411,8 +417,8 @@ def tool(tool_id):
            UNION ALL
            SELECT CASE WHEN p.placement_tool_id = :t THEN 'placement test'
                        WHEN p.program_id = :t THEN 'program' ELSE 'PM tool' END,
-                  p.area_id, p.id, p.teacher, p.tier, pr.name
-           FROM protocol p JOIN profile pr ON pr.id = p.profile_id
+                  p.area_id, p.id, i.name, p.tier, pr.name
+           FROM protocol p JOIN profile pr ON pr.id = p.profile_id JOIN instructor i ON i.id = p.teacher
            WHERE :t IN (p.placement_tool_id, p.program_id, p.pm_tool_id)
            ORDER BY 2, 4, 5, 1""", {"t": tool_id}).fetchall()
     ncii = con.execute(
@@ -472,8 +478,9 @@ def tool(tool_id):
 def form_choices(con, area_id):
     return {
         "profiles": con.execute(
-            "SELECT id, name, teacher, basis FROM profile WHERE area_id = ? OR id = '-' "
-            "ORDER BY (id <> '-'), teacher, name", (area_id,)).fetchall(),
+            "SELECT p.id, p.name, p.teacher, i.name AS teacher_name, p.basis FROM profile p JOIN instructor i ON i.id = p.teacher "
+            "WHERE p.area_id = ? OR p.id = '-' ORDER BY (p.id <> '-'), i.name, p.name", (area_id,)).fetchall(),
+        "instructors": con.execute("SELECT id, name, role FROM instructor ORDER BY (id <> '-'), name").fetchall(),
         "tools": con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(),
         "routes": con.execute("SELECT id, kind, tier, description FROM route ORDER BY id").fetchall(),
         "statuses": STATUSES,
@@ -506,6 +513,8 @@ def hard_errors(con, vals):
         errs.append("Status is required.")
     if vals["basis"] not in BASES:
         errs.append("Basis must be defined or observed.")
+    if not con.execute("SELECT 1 FROM instructor WHERE id = ?", (vals["teacher"],)).fetchone():
+        errs.append(f"Teacher '{vals['teacher']}' is not in the instructor table.")
     prof = con.execute("SELECT teacher FROM profile WHERE id = ?", (vals["profile_id"],)).fetchone()
     if prof is None:
         errs.append("Profile does not exist.")

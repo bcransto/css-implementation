@@ -24,10 +24,12 @@
     </select></label>
   <label>Profile
     <select name="profile_id">
-      {% for p in profiles %}<option value="{{ p.id }}" {% if vals.profile_id == p.id %}selected{% endif %}>{{ p.name }}{% if p.teacher != '-' %} — {{ p.teacher }} ({{ p.basis }}){% endif %}</option>{% endfor %}
+      {% for p in profiles %}<option value="{{ p.id }}" {% if vals.profile_id == p.id %}selected{% endif %}>{{ p.name }}{% if p.teacher != '-' %} — {{ p.teacher_name }} ({{ p.basis }}){% endif %}</option>{% endfor %}
     </select>
     <small>profiles for this area; a teacher's profile needs the same teacher below</small></label>
-  <label>Teacher <input name="teacher" value="{{ vals.teacher or '-' }}"><small><code>-</code> = the area's rule; a name = what that teacher does</small></label>
+  <label>Teacher
+    <select name="teacher">{% for i in instructors %}<option value="{{ i.id }}" {% if (vals.teacher or '-') == i.id %}selected{% endif %}>{% if i.id == '-' %}— the area's rule{% else %}{{ i.name }}{% if i.role %} ({{ i.role }}){% endif %}{% endif %}</option>{% endfor %}</select>
+    <small>a person = what that teacher does; new people are added by SQL on pinto</small></label>
   <label>Basis
     <select name="basis">{% for b in bases %}<option value="{{ b }}" {% if vals.basis == b %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
   <label>As of <input name="as_of" value="{{ vals.as_of or '' }}" placeholder="YYYY-MM"><small>observed rows only</small></label>
@@ -44,7 +46,11 @@
   <label>Program
     <select name="program_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.program_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
-  <label>Delivered by <input name="deliverer_role" value="{{ vals.deliverer_role or '' }}" placeholder="trained para"><small>a role, not a person</small></label>
+  <label>Delivered by <input name="deliverer_role" value="{{ vals.deliverer_role or '' }}" placeholder="trained para"><small>the role</small></label>
+  <label>Delivered by whom
+    <select name="deliverer_id"><option value="">—</option>
+      {% for i in instructors if i.id != '-' %}<option value="{{ i.id }}" {% if vals.deliverer_id == i.id %}selected{% endif %}>{{ i.name }}</option>{% endfor %}</select>
+    <small>observed rows: the named person, when there is one</small></label>
   <label>Dosage <input name="dosage" value="{{ vals.dosage or '' }}" placeholder="3 x 45 FLEX"></label>
   <label>Group size <input name="group_size" value="{{ vals.group_size or '' }}" placeholder="3-5"></label>
   <label>Weeks <input name="weeks" value="{{ vals.weeks or '' }}" placeholder="12-15"></label>

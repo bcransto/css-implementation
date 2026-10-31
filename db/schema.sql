@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.11
+-- MTSS tier-definition schema, v0.12
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -22,6 +22,8 @@
 -- v0.11: who says what. tool_profile (the vendor's product claims, NCII's field names) and measure (the vendor's
 --   per-instrument claims) take the design and usability columns out of tool and the ncii_* tables, which keep
 --   only NCII's findings; ncii_intervention gains the study's own facts; the intervention checklist joins dimension.
+-- v0.12: instructor (the people) and instructor_tool (their training). profile.teacher and protocol.teacher
+--   reference it; '-' stays the sentinel. protocol.deliverer_id names the person when there is one.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -254,10 +256,33 @@ CREATE TABLE area_screener (
   PRIMARY KEY (area_id, tool_id, grade_lo, role)
 );
 
+-- the people. Ids are slugs, normally the last name; a second Smith gets 'smith-j'. '-' = nobody (the area's rule).
+CREATE TABLE instructor (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,              -- as shown on the page: 'Spiegl'
+  full_name   TEXT,
+  role        TEXT CHECK (role IN ('classroom teacher','interventionist','reading specialist','special educator','para','slp','coach','admin')),
+  subject     TEXT,                       -- 'math' | 'reading' | NULL = both / not applicable
+  grade_lo    INTEGER,                    -- grades taught; K = 0
+  grade_hi    INTEGER,
+  flex_duty   INTEGER,                    -- 1 = staffs the FLEX block, 0 = does not, NULL = not asked
+  interviewed_on TEXT,                    -- YYYY-MM(-DD) of the interview behind this person's observed rows
+  notes       TEXT                        -- prose
+);
+
+-- which programs or instruments a person is trained to deliver; no row = not trained, or not asked
+CREATE TABLE instructor_tool (
+  instructor_id TEXT NOT NULL REFERENCES instructor(id),
+  tool_id     TEXT NOT NULL REFERENCES tool(id),
+  trained_on  TEXT,                       -- YYYY or YYYY-MM; NULL = date unknown
+  note        TEXT,                       -- 'Wilson Just Words launch workshop'
+  PRIMARY KEY (instructor_id, tool_id)
+);
+
 CREATE TABLE profile (
   id          TEXT PRIMARY KEY,
   area_id     TEXT NOT NULL REFERENCES area(id),
-  teacher     TEXT NOT NULL DEFAULT '-',  -- '-' = the area's profile; a name = that teacher's own category
+  teacher     TEXT NOT NULL DEFAULT '-' REFERENCES instructor(id),  -- '-' = the area's profile; else that teacher's own category
   basis       TEXT NOT NULL DEFAULT 'defined' CHECK (basis IN ('observed','defined')),
   name        TEXT NOT NULL,
   sort_rule   TEXT NOT NULL,              -- observed: how this teacher decides; defined: how the second stage decides
@@ -283,11 +308,12 @@ CREATE TABLE protocol (
   area_id     TEXT NOT NULL REFERENCES area(id),
   tier        INTEGER,                    -- NULL = routes outside the tiers
   profile_id  TEXT NOT NULL DEFAULT '-' REFERENCES profile(id),
-  teacher     TEXT NOT NULL DEFAULT '-',  -- '-' = the area's rule; a name = what that teacher does
+  teacher     TEXT NOT NULL DEFAULT '-' REFERENCES instructor(id),  -- '-' = the area's rule; else what that teacher does
   basis       TEXT NOT NULL DEFAULT 'defined' CHECK (basis IN ('observed','defined')),
   as_of       TEXT,                       -- observed rows: when this was recorded (YYYY-MM)
   evidence    TEXT,                       -- observed rows: 'interview', 'PM sheet', 'self-report'
-  deliverer_role TEXT,
+  deliverer_role TEXT,                    -- a role: 'trained para'
+  deliverer_id TEXT REFERENCES instructor(id),  -- the named person, when there is one (observed rows)
   placement_tool_id TEXT REFERENCES tool(id),
   program_id  TEXT REFERENCES tool(id),
   pm_tool_id  TEXT REFERENCES tool(id),
@@ -322,8 +348,9 @@ CREATE TABLE student_example (
   timeline    TEXT NOT NULL
 );
 
--- sentinels: whole-class rows use profile '-'
+-- sentinels: whole-class rows use profile '-', the area's own rows use instructor '-'
 INSERT INTO area VALUES ('-', '-', 0, 0, 0);
+INSERT INTO instructor VALUES ('-', '-', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');
 
 -- NCII's academic dimension list (tool detail pages). NCII's page misspells "Writting"; corrected here.

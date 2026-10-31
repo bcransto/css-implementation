@@ -32,7 +32,7 @@
    screener tables, which have no teacher, so only the defined view shows them. #}
 {% macro tier1(col, teacher, show_area) %}
   {% set st = col.status if col else 'none' %}
-  <h2 class="tier">Tier 1{% if teacher != '-' %} <small>({{ teacher }})</small>{% endif %}
+  <h2 class="tier">Tier 1{% if teacher != '-' %} <small>({{ instructors[teacher].name }})</small>{% endif %}
     {% if logged_in() and col %}<a class="edit" href="{{ url_for('protocol_edit', protocol_id=col.id) }}">edit</a>{% endif %}</h2>
   {% if col %}
   <p class="rowline">{{ status_bits(col) }}
@@ -99,7 +99,7 @@
 
 {# ---- Tiers 2+ (and 'Outside the tiers'): one column per profile ------------------------------- #}
 {% macro tier_table(tier, cols, teacher) %}
-  <h2 class="tier">{{ tier_label(tier) }}{% if teacher != '-' %} <small>({{ teacher }})</small>{% endif %}</h2>
+  <h2 class="tier">{{ tier_label(tier) }}{% if teacher != '-' %} <small>({{ instructors[teacher].name }})</small>{% endif %}</h2>
   <div class="scroll">
   <table class="grid {% if teacher != '-' %}observed{% endif %}">
     <thead>
@@ -150,7 +150,7 @@
 <div class="views" data-view="{{ 'observed' if observed_teachers else 'defined' }}">
   <nav class="tabs">
     <a href="#observed" data-view="observed" {% if observed_teachers %}class="on"{% endif %}>Observed
-      <small>{% if observed_teachers %}{{ observed_teachers|join(', ') }}{% else %}none yet{% endif %}</small></a>
+      <small>{% if observed_teachers %}{% for t in observed_teachers %}{{ instructors[t].name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}none yet{% endif %}</small></a>
     <a href="#defined" data-view="defined" {% if not observed_teachers %}class="on"{% endif %}>Defined
       <small>the area's rule</small></a>
   </nav>
@@ -160,7 +160,10 @@
       <p class="muted">No teacher's practice has been recorded for this area yet.</p>
     {% endif %}
     {% for teacher in observed_teachers %}{% set tiers = by_teacher[teacher] %}
-      {% if observed_teachers|length > 1 %}<h2 class="observed-head">{{ teacher }} <small>what this teacher does now, not the area's rule</small></h2>{% endif %}
+      {% set who = instructors[teacher] %}
+      <h2 class="observed-head">{{ who.name }}{% if who.full_name %} <span class="muted">{{ who.full_name }}</span>{% endif %}
+        <small>{{ [who.role, (who.subject ~ ' ' ~ who.grade_lo|grade_span(who.grade_hi)) if who.grade_lo is not none else who.subject,
+                   ('FLEX duty' if who.flex_duty), ('interviewed ' ~ who.interviewed_on) if who.interviewed_on]|select|join(' · ') }}</small></h2>
       {% for tier, cols in tiers.items() %}
         {% if tier == 1 and cols|length == 1 %}{{ tier1(cols[0], teacher, False) }}
         {% else %}{{ tier_table(tier, cols, teacher) }}{% endif %}
