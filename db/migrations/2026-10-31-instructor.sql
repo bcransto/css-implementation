@@ -3,11 +3,14 @@
 -- in (instructor_tool). Ids are slugs, normally the last name ('spiegl'); '-' stays the sentinel for the
 -- area's own rule. protocol gains deliverer_id for rows where the deliverer is a named person; the three
 -- observed Tier 2 rows whose deliverer_role already says "herself" / "only deliverer" get it set.
--- Rebuilds profile and protocol, so foreign keys are off for the transaction and checked at the end.
+-- Rebuilds profile and protocol, so foreign keys are off for the transaction and checked at the end. The
+-- protocol trigger references profile and is dropped first: SQLite re-parses every trigger on ALTER TABLE
+-- RENAME and fails if one names a table that is gone. Run with -bail so an error stops before COMMIT.
 -- Apply to the LIVE database:
---   ssh bcransto@pinto 'sqlite3 ~/css-implementation/css.db' < db/migrations/2026-10-31-instructor.sql
+--   ssh bcransto@pinto 'sqlite3 -bail ~/css-implementation/css.db' < db/migrations/2026-10-31-instructor.sql
 PRAGMA foreign_keys = OFF;
 BEGIN;
+DROP TRIGGER IF EXISTS protocol_profile_scope;
 
 CREATE TABLE instructor (
   id          TEXT PRIMARY KEY,           -- slug, normally the last name: 'spiegl'; a second Smith gets 'smith-j'
