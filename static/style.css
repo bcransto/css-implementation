@@ -173,3 +173,8 @@ form.edit table.rows { min-width: 760px; }
 form.edit table.rows td:first-child { min-width: 170px; }
 form.edit table.rows .pair select { width: 4.2em; }
 form.edit table.rows td:nth-child(4) select, form.edit table.rows td:nth-child(6) select { min-width: 7em; }
+/* protocol form follows the tier */
+form.edit[data-tier="1"] .t2 { display: none; }
+form.edit:not([data-tier="1"]) .t1 { display: none; }
+form.edit input.newtool { margin-top: 4px; font-size: 12px; width: 100%; }
+form.edit fieldset.rows #entry-slot label { margin-top: 10px; }

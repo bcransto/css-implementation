@@ -58,7 +58,7 @@ FIELDS = [
     ("entry_rule", "Intervention entry rule"),
     ("placement", "Placement test"),
     ("program", "Program"),
-    ("instruction", "What happens"),
+    ("instruction", "Instruction"),
     ("deliverer_role", "Delivered by"),
     ("dosage", "Dosage"),
     ("group_size", "Group size"),
@@ -496,6 +496,10 @@ def form_choices(con, area_id):
         "routes": con.execute("SELECT id, kind, tier, description FROM route ORDER BY id").fetchall(),
         "statuses": STATUSES,
         "bases": BASES,
+        "screen_roles": SCREEN_ROLES,
+        "screen_statuses": SCREEN_STATUSES,
+        "windows_values": [r[0] for r in con.execute(
+            "SELECT DISTINCT windows FROM area_screener WHERE windows IS NOT NULL ORDER BY windows")],
     }
 
 
@@ -570,10 +574,20 @@ def soft_warnings(con, area_id, vals):
     return warns
 
 
-def render_form(con, a, vals, protocol_id=None, errors=(), warnings=()):
+def render_form(con, a, vals, protocol_id=None, errors=(), warnings=(), screening=None):
+    if screening is None:
+        screening = load_screening(con, a["id"], vals.get("teacher") or "-")
     return render_template(
         "edit.html", area=a, vals=vals, protocol_id=protocol_id, errors=errors, warnings=warnings,
-        all_areas=all_areas(con), **form_choices(con, a["id"]))
+        screening=screening, all_areas=all_areas(con), **form_choices(con, a["id"]))
+
+
+def screening_from_form(con, vals):
+    """Tier 1 rows carry the teacher's screening rows; other tiers leave area_screener alone."""
+    if vals["tier"] != 1:
+        return None, []
+    rows, errs = read_screening_form()
+    return rows, screening_errors(con, rows, errs)
 
 
 @app.route("/area/<area_id>/new", methods=["GET", "POST"])
@@ -590,22 +604,26 @@ def protocol_new(area_id):
     vals = read_form()
     new_id = (request.form.get("id") or "").strip().lower()
     errors = hard_errors(con, vals)
+    screening, serrs = screening_from_form(con, vals)
+    errors += serrs
     if not ID_RE.match(new_id):
         errors.append("Id is required: lowercase letters, digits and hyphens, e.g. m6-t2-fact.")
     elif con.execute("SELECT 1 FROM protocol WHERE id = ?", (new_id,)).fetchone():
         errors.append(f"A protocol with id '{new_id}' already exists.")
     if errors:
-        return render_form(con, a, vals, errors=errors, warnings=soft_warnings(con, area_id, vals)), 400
+        return render_form(con, a, vals, errors=errors, warnings=soft_warnings(con, area_id, vals), screening=screening), 400
     cols = ["id", "area_id"] + EDIT_COLS
     try:
         con.execute(
             f"INSERT INTO protocol ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
             [new_id, area_id] + [vals[c] for c in EDIT_COLS])
+        if screening is not None:
+            save_screening(con, area_id, vals["teacher"], screening)
         con.commit()
     except sqlite3.IntegrityError as e:
         con.rollback()
         return render_form(con, a, vals, errors=[integrity_message(e)],
-                           warnings=soft_warnings(con, area_id, vals)), 400
+                           warnings=soft_warnings(con, area_id, vals), screening=screening), 400
     flash_saved(new_id, soft_warnings(con, area_id, vals))
     return redirect(url_for("area", area_id=area_id))
 
@@ -623,17 +641,21 @@ def protocol_edit(protocol_id):
         return render_form(con, a, vals, protocol_id, warnings=soft_warnings(con, a["id"], vals))
     vals = read_form()
     errors = hard_errors(con, vals)
+    screening, serrs = screening_from_form(con, vals)
+    errors += serrs
     if errors:
-        return render_form(con, a, vals, protocol_id, errors, soft_warnings(con, a["id"], vals)), 400
+        return render_form(con, a, vals, protocol_id, errors, soft_warnings(con, a["id"], vals), screening), 400
     try:
         con.execute(
             f"UPDATE protocol SET {', '.join(c + ' = ?' for c in EDIT_COLS)} WHERE id = ?",
             [vals[c] for c in EDIT_COLS] + [protocol_id])
+        if screening is not None:
+            save_screening(con, a["id"], vals["teacher"], screening)
         con.commit()
     except sqlite3.IntegrityError as e:
         con.rollback()
         return render_form(con, a, vals, protocol_id, [integrity_message(e)],
-                           soft_warnings(con, a["id"], vals)), 400
+                           soft_warnings(con, a["id"], vals), screening), 400
     flash_saved(protocol_id, soft_warnings(con, a["id"], vals))
     return redirect(url_for("area", area_id=a["id"]))
 
@@ -836,50 +858,88 @@ SCREEN_STATUSES = ["doc", "unwritten", "proposed"]
 def read_screening_form():
     """Form -> (rows, errors). Rows without a tool are dropped."""
     f = request.form
-    tools = f.getlist("s_tool")
 
     def pick(name, i):
         vals = f.getlist(name)
         return (vals[i] if i < len(vals) else "").strip()
 
     rows, errs = [], []
-    for i, tid in enumerate(tools):
-        if not tid.strip():
+    for i in range(max(len(f.getlist("s_tool")), len(f.getlist("s_new")))):
+        tid, new = pick("s_tool", i), pick("s_new", i)
+        if not tid and not new:
             continue
+        if tid and new:
+            errs.append(f"Screening row {i + 1}: pick a tool or name a new one, not both.")
         lo, hi = pick("s_lo", i), pick("s_hi", i)
         try:
             lo, hi = int(lo), int(hi)
         except ValueError:
-            errs.append(f"Row {i + 1}: both grades are required.")
+            errs.append(f"Screening row {i + 1}: both grades are required.")
             lo = hi = None
-        rows.append({"tool_id": tid.strip(), "grade_lo": lo, "grade_hi": hi, "windows": pick("s_windows", i) or None,
-                     "role": pick("s_role", i) or "screen", "cut": pick("s_cut", i) or None,
-                     "status": pick("s_status", i) or "unwritten"})
+        rows.append({"tool_id": tid or None, "new_name": new or None, "grade_lo": lo, "grade_hi": hi,
+                     "windows": pick("s_windows", i) or None, "role": pick("s_role", i) or "screen",
+                     "cut": pick("s_cut", i) or None, "status": pick("s_status", i) or "unwritten"})
     return rows, errs
 
 
 def screening_errors(con, rows, errs):
     seen = set()
     for i, r in enumerate(rows, 1):
-        if not con.execute("SELECT 1 FROM tool WHERE id = ?", (r["tool_id"],)).fetchone():
-            errs.append(f"Row {i}: tool '{r['tool_id']}' does not exist.")
+        if r["tool_id"] and not con.execute("SELECT 1 FROM tool WHERE id = ?", (r["tool_id"],)).fetchone():
+            errs.append(f"Screening row {i}: tool '{r['tool_id']}' does not exist.")
+        if r["new_name"] and con.execute("SELECT 1 FROM tool WHERE lower(name) = lower(?)", (r["new_name"],)).fetchone():
+            errs.append(f"Screening row {i}: a tool named '{r['new_name']}' already exists; pick it from the list.")
         if r["grade_lo"] is not None and r["grade_lo"] > r["grade_hi"]:
-            errs.append(f"Row {i}: the grade range is backwards.")
+            errs.append(f"Screening row {i}: the grade range is backwards.")
         if r["role"] not in SCREEN_ROLES:
-            errs.append(f"Row {i}: role must be one of {', '.join(SCREEN_ROLES)}.")
+            errs.append(f"Screening row {i}: role must be one of {', '.join(SCREEN_ROLES)}.")
         if r["status"] not in SCREEN_STATUSES:
-            errs.append(f"Row {i}: status must be one of {', '.join(SCREEN_STATUSES)}.")
-        key = (r["tool_id"], r["grade_lo"], r["role"])
+            errs.append(f"Screening row {i}: status must be one of {', '.join(SCREEN_STATUSES)}.")
+        key = ((r["tool_id"] or r["new_name"] or "").lower(), r["grade_lo"], r["role"])
         if key in seen:
-            errs.append(f"Row {i}: same tool, starting grade and role as an earlier row.")
+            errs.append(f"Screening row {i}: same tool, starting grade and role as an earlier row.")
         seen.add(key)
     return errs
+
+
+def slug(name):
+    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return s or "tool"
+
+
+def load_screening(con, area_id, teacher):
+    return [dict(r) for r in con.execute(
+        """SELECT tool_id, grade_lo, grade_hi, windows, role, cut, status FROM area_screener
+           WHERE area_id = ? AND teacher = ?
+           ORDER BY CASE role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, grade_lo, tool_id""",
+        (area_id, teacher))]
+
+
+def save_screening(con, area_id, teacher, rows):
+    """Replace one area × teacher's screener rows. A row naming a new tool creates it (id from the name). Caller commits."""
+    for r in rows:
+        if r.get("new_name") and not r.get("tool_id"):
+            base = tid = slug(r["new_name"])
+            n = 2
+            while con.execute("SELECT 1 FROM tool WHERE id = ?", (tid,)).fetchone():
+                tid = f"{base}-{n}"
+                n += 1
+            con.execute("INSERT INTO tool (id, name) VALUES (?, ?)", (tid, r["new_name"]))
+            r["tool_id"] = tid
+    con.execute("DELETE FROM area_screener WHERE area_id = ? AND teacher = ?", (area_id, teacher))
+    con.executemany(
+        """INSERT INTO area_screener (area_id, teacher, tool_id, grade_lo, grade_hi, windows, role, cut, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(area_id, teacher, r["tool_id"], r["grade_lo"], r["grade_hi"], r["windows"], r["role"], r["cut"], r["status"])
+         for r in rows])
 
 
 def render_screening_form(con, a, who, rows, errors=()):
     return render_template(
         "screening_edit.html", area=a, who=who, rows=rows, errors=errors, roles=SCREEN_ROLES, statuses=SCREEN_STATUSES,
-        tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(), all_areas=all_areas(con))
+        tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(), all_areas=all_areas(con),
+        windows_values=[r[0] for r in con.execute(
+            "SELECT DISTINCT windows FROM area_screener WHERE windows IS NOT NULL ORDER BY windows")])
 
 
 @app.route("/area/<area_id>/screening/<teacher>", methods=["GET", "POST"])
@@ -891,23 +951,13 @@ def screening_edit(area_id, teacher):
     if a is None or who is None:
         abort(404)
     if request.method == "GET":
-        rows = [dict(r) for r in con.execute(
-            """SELECT tool_id, grade_lo, grade_hi, windows, role, cut, status FROM area_screener
-               WHERE area_id = ? AND teacher = ?
-               ORDER BY CASE role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, grade_lo, tool_id""",
-            (area_id, teacher))]
-        return render_screening_form(con, a, who, rows)
+        return render_screening_form(con, a, who, load_screening(con, area_id, teacher))
     rows, errs = read_screening_form()
     errs = screening_errors(con, rows, errs)
     if errs:
         return render_screening_form(con, a, who, rows, errs), 400
     try:
-        con.execute("DELETE FROM area_screener WHERE area_id = ? AND teacher = ?", (area_id, teacher))
-        con.executemany(
-            """INSERT INTO area_screener (area_id, teacher, tool_id, grade_lo, grade_hi, windows, role, cut, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [(area_id, teacher, r["tool_id"], r["grade_lo"], r["grade_hi"], r["windows"], r["role"], r["cut"], r["status"])
-             for r in rows])
+        save_screening(con, area_id, teacher, rows)
         con.commit()
     except sqlite3.IntegrityError as e:
         con.rollback()

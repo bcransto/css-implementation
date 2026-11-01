@@ -10,7 +10,7 @@
 {% if errors %}<div class="msg error"><strong>Not saved.</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
 {% if warnings %}<div class="msg warn"><strong>Worth knowing</strong> (does not block saving)<ul>{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
 
-<form method="post" class="edit">
+<form method="post" class="edit" id="protocol-form" data-tier="{{ vals.tier if vals.tier is not none else 'none' }}">
 <fieldset>
   <legend>Which row</legend>
   {% if not protocol_id %}
@@ -18,59 +18,87 @@
     <small>lowercase, hyphens; area-tier-profile is the convention</small></label>
   {% endif %}
   <label>Tier
-    <select name="tier">
+    <select name="tier" id="tier">
       <option value="" {% if vals.tier is none %}selected{% endif %}>outside the tiers</option>
       {% for t in [1, 2, 3] %}<option value="{{ t }}" {% if vals.tier == t %}selected{% endif %}>Tier {{ t }}</option>{% endfor %}
-    </select></label>
-  <label>Profile
-    <select name="profile_id">
-      {% for p in profiles %}<option value="{{ p.id }}" {% if vals.profile_id == p.id %}selected{% endif %}>{{ p.name }}{% if p.teacher != '-' %} — {{ p.teacher_name }} ({{ p.basis }}){% endif %}</option>{% endfor %}
     </select>
-    <small>profiles for this area; a teacher's profile needs the same teacher below</small></label>
+    <small>Tier 1 is core + screening; the fields below follow the tier</small></label>
   <label>Teacher
-    <select name="teacher">{% for i in instructors %}<option value="{{ i.id }}" {% if (vals.teacher or '-') == i.id %}selected{% endif %}>{% if i.id == '-' %}— the area's rule{% else %}{{ i.name }}{% if i.role %} ({{ i.role }}){% endif %}{% endif %}</option>{% endfor %}</select>
+    <select name="teacher" id="teacher">{% for i in instructors %}<option value="{{ i.id }}" {% if (vals.teacher or '-') == i.id %}selected{% endif %}>{% if i.id == '-' %}— the area's rule{% else %}{{ i.name }}{% if i.role %} ({{ i.role }}){% endif %}{% endif %}</option>{% endfor %}</select>
     <small>a person = what that teacher does; <a href="{{ url_for('instructor_new') }}">add a person</a> if they are missing</small></label>
+  <label>Profile
+    <select name="profile_id" id="profile">
+      {% for p in profiles %}<option value="{{ p.id }}" data-teacher="{{ p.teacher }}" {% if vals.profile_id == p.id %}selected{% endif %}>{{ p.name }}{% if p.teacher != '-' %} — {{ p.teacher_name }} ({{ p.basis }}){% endif %}</option>{% endfor %}
+    </select>
+    <small>(all) for whole-class rows; the list shows the area's profiles and the chosen teacher's</small></label>
   <label>Basis
     <select name="basis">{% for b in bases %}<option value="{{ b }}" {% if vals.basis == b %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
   <label>As of <input name="as_of" value="{{ vals.as_of or '' }}" placeholder="YYYY-MM"><small>observed rows only</small></label>
   <label>Evidence <input name="evidence" value="{{ vals.evidence or '' }}" placeholder="interview / PM sheet / self-report"><small>observed rows only</small></label>
 </fieldset>
 
-<fieldset>
-  <legend>What the tier does</legend>
-  <label class="wide">Intervention entry rule <textarea name="entry_rule" rows="2">{{ vals.entry_rule or '' }}</textarea>
-    <small>Tier 1: what flags a student for the second stage. Tier 2+: what the second stage must show to enter</small></label>
-  <label>Placement test
+<fieldset id="core-fs">
+  <legend><span class="t1">Core</span><span class="t2">What the tier does</span></legend>
+  <label class="wide" id="entry-label">Intervention entry rule <textarea name="entry_rule" rows="3">{{ vals.entry_rule or '' }}</textarea>
+    <small><span class="t1">what flags a student for the second stage, in words; the screening rows above are the tools</span><span class="t2">what the second stage must show to enter this tier</span></small></label>
+  <label class="t2">Placement test
     <select name="placement_tool_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.placement_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
-  <label>Program
+  <label><span class="t1">Core program</span><span class="t2">Program</span>
     <select name="program_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.program_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
-  <label class="wide">What happens <textarea name="instruction" rows="2">{{ vals.instruction or '' }}</textarea>
-    <small>what the instruction looks like: Tier 1, the core block beyond the program's name; Tier 2+, what a session contains</small></label>
+  <label class="wide">Instruction <textarea name="instruction" rows="2">{{ vals.instruction or '' }}</textarea>
+    <small><span class="t1">what the core block looks like beyond the program's name</span><span class="t2">what a session contains; dosage and group size say how much, not what</span></small></label>
   <label>Delivered by <input name="deliverer_role" value="{{ vals.deliverer_role or '' }}" placeholder="trained para"><small>the role</small></label>
   <label>Delivered by whom
     <select name="deliverer_id"><option value="">—</option>
       {% for i in instructors if i.id != '-' %}<option value="{{ i.id }}" {% if vals.deliverer_id == i.id %}selected{% endif %}>{{ i.name }}</option>{% endfor %}</select>
     <small>observed rows: the named person, when there is one</small></label>
   <label>Dosage <input name="dosage" value="{{ vals.dosage or '' }}" placeholder="3 x 45 FLEX"></label>
-  <label>Group size <input name="group_size" value="{{ vals.group_size or '' }}" placeholder="3-5"></label>
-  <label>Weeks <input name="weeks" value="{{ vals.weeks or '' }}" placeholder="12-15"></label>
+  <label class="t2">Group size <input name="group_size" value="{{ vals.group_size or '' }}" placeholder="3-5"></label>
+  <label class="t2">Weeks <input name="weeks" value="{{ vals.weeks or '' }}" placeholder="12-15"></label>
+</fieldset>
+
+<fieldset class="rows t1" id="screening-fs">
+  <legend>Screening</legend>
+  <div class="scroll"><table class="mini rows">
+    <thead><tr><th>Tool</th><th>Grades</th><th>When</th><th>Role</th><th>Flag rule</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for r in screening + [{}, {}] %}
+    <tr>
+      <td><select name="s_tool"><option value="">—</option>
+          {% for t in tools %}<option value="{{ t.id }}" {% if r.tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select>
+        <input name="s_new" class="newtool" value="{{ r.new_name or '' }}" placeholder="or a new tool's name"></td>
+      <td><span class="pair">
+        <select name="s_lo">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_lo if r.grade_lo is not none else area.grade_lo) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
+        <select name="s_hi">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_hi if r.grade_hi is not none else area.grade_hi) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select></span></td>
+      <td><input name="s_windows" list="windows-list" value="{{ r.windows or '' }}" placeholder="Sep,Jan,May"></td>
+      <td><select name="s_role">{% for x in screen_roles %}<option value="{{ x }}" {% if (r.role or 'screen') == x %}selected{% endif %}>{{ x.replace('_', ' ') }}</option>{% endfor %}</select></td>
+      <td><input name="s_cut" value="{{ r.cut or '' }}" placeholder="PR < 25"></td>
+      <td><select name="s_status">{% for x in screen_statuses %}<option value="{{ x }}" {% if (r.status or ('unwritten' if (vals.teacher or '-') != '-' else 'proposed')) == x %}selected{% endif %}>{{ x }}</option>{% endfor %}</select></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <small class="muted">One row per screening tool, as on the page: pick a tool or type a new one's name (it is created on save, name only).
+    Rows without a tool are ignored; clear the tool to remove one. <em>When</em> is the window text; <em>Flag rule</em> is the cut, or the words the teacher uses.
+    These rows belong to the teacher chosen above, not to this row alone.</small>
+  <div id="entry-slot"></div>
 </fieldset>
 
 <fieldset>
-  <legend>How it is measured and reviewed</legend>
+  <legend><span class="t1">Progress monitoring</span><span class="t2">How it is measured and reviewed</span></legend>
   <label>PM tool
     <select name="pm_tool_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.pm_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
   <label>PM metric <input name="pm_metric" value="{{ vals.pm_metric or '' }}" placeholder="accuracy %"><small>which number from the tool</small></label>
-  <label class="wide">PM rule <textarea name="pm_rule" rows="2">{{ vals.pm_rule or '' }}</textarea>
+  <label class="wide">PM rule <textarea name="pm_rule" rows="3">{{ vals.pm_rule or '' }}</textarea>
     <small>frequency, aimline, decision rule</small></label>
-  <label class="wide">Review <textarea name="review_rule" rows="1">{{ vals.review_rule or '' }}</textarea></label>
-  <label class="wide">Exit rule <textarea name="exit_rule" rows="2">{{ vals.exit_rule or '' }}</textarea></label>
+  <label class="wide">Review <textarea name="review_rule" rows="2">{{ vals.review_rule or '' }}</textarea></label>
+  <label class="wide t2">Exit rule <textarea name="exit_rule" rows="3">{{ vals.exit_rule or '' }}</textarea></label>
 </fieldset>
 
-<fieldset>
+<fieldset class="t2">
   <legend>Where the student goes</legend>
   <label>On response
     <select name="next_step_id"><option value="">—</option>
@@ -85,7 +113,7 @@
   <label>Status
     <select name="status" required>{% for s in statuses %}<option value="{{ s }}" {% if vals.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
     <small>doc = in a district document · unwritten = practice only · proposed = ours · iep</small></label>
-  <label class="wide">Status note <textarea name="status_note" rows="1">{{ vals.status_note or '' }}</textarea>
+  <label class="wide">Status note <textarea name="status_note" rows="2">{{ vals.status_note or '' }}</textarea>
     <small>per-field exceptions, as prose: "dosage is doc; rest proposed"</small></label>
   <label class="wide">Citations <textarea name="citations" rows="1">{{ vals.citations or '' }}</textarea>
     <small>source ids with pages, separated by semicolons: "pg2021 Rec 4 pp.29-39; smart p.14"</small></label>
@@ -96,4 +124,30 @@
   <a href="{{ url_for('area', area_id=area.id) }}">Cancel</a>
 </div>
 </form>
+<datalist id="windows-list">{% for w in windows_values %}<option value="{{ w }}">{% endfor %}</datalist>
+
+<script>
+(function () {
+  var form = document.getElementById('protocol-form'), tier = document.getElementById('tier'),
+      teacher = document.getElementById('teacher'), profile = document.getElementById('profile'),
+      entry = document.getElementById('entry-label'), slot = document.getElementById('entry-slot'),
+      core = document.getElementById('core-fs');
+  function applyTier() {
+    var t = tier.value;
+    form.dataset.tier = t || 'none';
+    if (t === '1') { slot.appendChild(entry); } else { core.insertBefore(entry, core.children[1]); }
+  }
+  function applyTeacher() {
+    var t = teacher.value;
+    Array.prototype.forEach.call(profile.options, function (o) {
+      var ok = o.dataset.teacher === '-' || o.dataset.teacher === t;
+      o.hidden = !ok; o.disabled = !ok;
+    });
+    if (profile.selectedIndex >= 0 && profile.options[profile.selectedIndex].disabled) { profile.value = '-'; }
+  }
+  tier.addEventListener('change', applyTier);
+  teacher.addEventListener('change', applyTeacher);
+  applyTier(); applyTeacher();
+})();
+</script>
 {% endblock %}
