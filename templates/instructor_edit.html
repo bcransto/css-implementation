@@ -37,6 +37,7 @@
       <option value="0" {% if vals.flex_duty == 0 %}selected{% endif %}>no</option>
     </select></label>
   <label>Interviewed <input name="interviewed_on" value="{{ vals.interviewed_on or '' }}" placeholder="YYYY-MM"><small>the interview behind this person's observed rows</small></label>
+  <label>Left <input name="left_on" value="{{ vals.left_on or '' }}" placeholder="YYYY-MM"><small>blank while they are here; their rows stay as dated history</small></label>
   <label class="wide">Notes <textarea name="notes" rows="2">{{ vals.notes or '' }}</textarea></label>
 </fieldset>
 

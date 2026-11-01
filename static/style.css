@@ -50,6 +50,7 @@ table.grid td.status-proposed { background: #fffbf0; }
 table.grid td.status-unwritten { background: #f6f6f6; }
 table.grid td.status-iep { background: #f3f7fc; }
 table.grid.observed { border-style: dashed; }
+.departed { opacity: .6; }   /* a teacher who has left: rows stay as history, dimmed */
 table.grid td[title] { cursor: help; text-decoration: underline dotted #bbb; text-underline-offset: 3px; }
 
 /* NCII ratings */

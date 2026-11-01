@@ -246,7 +246,7 @@ LEFT JOIN tool pm ON pm.id = p.pm_tool_id
 LEFT JOIN route nx ON nx.id = p.next_step_id
 LEFT JOIN route nr ON nr.id = p.nonresponse_id
 WHERE p.area_id = ?
-ORDER BY (p.teacher <> '-'), i.name, (p.tier IS NULL), p.tier, (pr.id <> '-'), pr.name
+ORDER BY (p.teacher <> '-'), (i.left_on IS NOT NULL), i.name, (p.tier IS NULL), p.tier, (pr.id <> '-'), pr.name
 """
 
 
@@ -678,7 +678,7 @@ def flash_saved(protocol_id, warnings):
 # ---- instructors -------------------------------------------------------------------------------
 ROLES = ["classroom teacher", "interventionist", "literacy specialist", "special educator", "para", "slp", "tutor", "admin"]
 SUBJECTS = ["math", "reading", "behavior"]
-INSTRUCTOR_COLS = ["name", "full_name", "role", "grade_lo", "grade_hi", "flex_duty", "interviewed_on", "notes"]
+INSTRUCTOR_COLS = ["name", "full_name", "role", "grade_lo", "grade_hi", "flex_duty", "interviewed_on", "left_on", "notes"]
 
 INSTRUCTOR_LIST = """
 SELECT i.*,
@@ -687,7 +687,7 @@ SELECT i.*,
        (SELECT count(*) FROM protocol p WHERE p.teacher = i.id) AS observed_rows,
        (SELECT group_concat(t.name, ', ') FROM instructor_tool it JOIN tool t ON t.id = it.tool_id
           WHERE it.instructor_id = i.id) AS trained
-FROM instructor i WHERE i.id <> '-' ORDER BY i.name
+FROM instructor i WHERE i.id <> '-' ORDER BY (i.left_on IS NOT NULL), i.name
 """
 
 
@@ -760,6 +760,8 @@ def instructor_errors(con, vals, subjects, training):
         errs.append("The grade range is backwards.")
     if vals["flex_duty"] not in (None, 0, 1):
         errs.append("FLEX duty must be yes, no or not asked.")
+    if vals["left_on"] and not re.fullmatch(r"\d{4}-\d{2}", vals["left_on"]):
+        errs.append("Left must be a month, YYYY-MM, or blank for a current teacher.")
     seen = set()
     for t in training:
         if t["tool_id"] in seen:

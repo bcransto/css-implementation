@@ -4,7 +4,7 @@
   {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
 {% endblock %}
 {% block body %}
-<h1>{{ who.name }}
+<h1>{{ who.name }}{% if who.left_on %} <span class="pill">left {{ who.left_on }}</span>{% endif %}
   <small>{% if who.full_name %}{{ who.full_name }} · {% endif %}<a href="{{ url_for('instructors') }}">all instructors</a> · <code>{{ who.id }}</code></small>
   {% if logged_in() %}<a class="btn" href="{{ url_for('instructor_edit', instructor_id=who.id) }}">Edit</a>{% endif %}</h1>
 {% if who.notes %}<p class="lede">{{ who.notes }}</p>{% endif %}
@@ -17,6 +17,7 @@
       <dt>Teaches</dt><dd>{{ subjects|join(', ') }}{% if who.grade_lo is not none %} {{ who.grade_lo|grade_span(who.grade_hi) }}{% endif %}{% if not subjects and who.grade_lo is none %}—{% endif %}</dd>
       <dt>FLEX duty</dt><dd>{% if who.flex_duty == 1 %}yes{% elif who.flex_duty == 0 %}no{% else %}<span class="muted">not asked</span>{% endif %}</dd>
       <dt>Interviewed</dt><dd>{{ who.interviewed_on or '—' }}</dd>
+      {% if who.left_on %}<dt>Left</dt><dd>{{ who.left_on }}</dd>{% endif %}
     </dl>
   </div>
   <div>
@@ -34,7 +35,7 @@
   </div>
 </section>
 
-<h2>Observed rows <small>what this teacher does now, by area</small></h2>
+<h2>Observed rows <small>what this teacher {{ 'did' if who.left_on else 'does now' }}, by area</small></h2>
 {% if rows %}
 <table class="list">
   <thead><tr><th>Area</th><th>Tier</th><th>Profile</th><th>Program</th><th></th><th>As of</th><th>Evidence</th>{% if logged_in() %}<th></th>{% endif %}</tr></thead>

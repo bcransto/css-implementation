@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.15
+-- MTSS tier-definition schema, v0.16
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -29,6 +29,8 @@
 --   becomes instructor_subject because a tutor can cover both math and reading.
 -- v0.15: area_screener is scoped to a teacher ('-' = the area's rule), so each Observed tab can show what that
 --   teacher screens with as rows, not prose.
+-- v0.16: instructor.left_on. A departed teacher keeps their row and their observed rows (dated history);
+--   left_on marks them gone so the area page lists current teachers first and a replacement gets new rows.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE area (
@@ -272,6 +274,7 @@ CREATE TABLE instructor (
   grade_hi    INTEGER,
   flex_duty   INTEGER,                    -- 1 = staffs the FLEX block, 0 = does not, NULL = not asked
   interviewed_on TEXT,                    -- YYYY-MM(-DD) of the interview behind this person's observed rows
+  left_on     TEXT,                       -- YYYY-MM the person left (retired, moved on); NULL = current (v0.16)
   notes       TEXT                        -- prose
 );
 

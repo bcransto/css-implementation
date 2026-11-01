@@ -1,4 +1,4 @@
-# CSS tier-definition database — schema v0.15
+# CSS tier-definition database — schema v0.16
 
 The Carlisle System of Support (CSS, the district's MTSS) "Define the Tiers" group needs one place that says, for every academic area, what each tier actually *does*: which tool screens, which rule flags, which test places, which program runs, how it is measured, when it is reviewed, how a student exits, and where they go if they don't. The district's existing documents list nouns (programs, tests) with no verbs (rules). This database is the verbs.
 
@@ -36,7 +36,7 @@ An observed profile is a teacher's own sorting category ("can't do facts"), and 
 | `ncii_intervention` | one **study** on NCII's academic intervention tools chart: tool × study citation | same conventions; not grade-bound. NCII's ratings: design and results (design, effect sizes as printed, disaggregated ES, visual analysis), other indicators (participants, fidelity, targeted and broader measures, number of outcome measures). Then the study's own facts, as implemented: sample, grades, assignment, group size, weeks, sessions per week, minutes, who delivered it, notes. The chart's Intensity columns (the vendor's design) are on `tool_profile`; its WWC/ESSA column is in `tool_evidence` |
 | `area_core` | a core program in an area | link table: grade 3 reading has a phonics core and a comprehension core |
 | `area_screener` | one screening tool in one area for a grade range, for the area (`teacher '-'`) or for one teacher | `role` ∈ screen / level_check / on_request; `cut` is the flag threshold; `teacher` references `instructor` (v0.15), so each Observed tab shows that teacher's screeners as rows |
-| `instructor` | a person | id is a slug, normally the last name (`spiegl`; a second Smith gets `smith-j`); `name` is what the page shows. `role` ∈ classroom teacher / interventionist / literacy specialist / special educator / para / slp / tutor / admin; `grade_lo`/`grade_hi`, `flex_duty`, `interviewed_on` (the interview behind the observed rows), `notes`. Row `'-'` is the sentinel for the area's own rule. No contact details, on purpose |
+| `instructor` | a person | id is a slug, normally the last name (`spiegl`; a second Smith gets `smith-j`); `name` is what the page shows. `role` ∈ classroom teacher / interventionist / literacy specialist / special educator / para / slp / tutor / admin; `grade_lo`/`grade_hi`, `flex_duty`, `interviewed_on` (the interview behind the observed rows), `left_on` (YYYY-MM the person left; NULL = current, v0.16), `notes`. Row `'-'` is the sentinel for the area's own rule. No contact details, on purpose |
 | `instructor_subject` | a subject a person covers: instructor × subject | `subject` ∈ math / reading / behavior. A tutor has two rows; no row = not recorded (v0.14) |
 | `instructor_tool` | a program or instrument a person is trained to deliver | `trained_on`, `note`. No row = not trained, or not asked. Answers "who is the trained para" next to `tool_license` |
 | `profile` | a diagnostic category inside an area, for the area (`teacher '-'`) or for one teacher | `teacher` references `instructor`. | `sort_rule` says how the second stage assigns it. Row `'-'` is the whole-class sentinel |
@@ -141,6 +141,8 @@ v0.12 (2026-10-31) added `instructor` and `instructor_tool`. `teacher` had been 
 v0.8 (2026-10-30) added the design fields on `tool` and `tool_evidence`, the design-vs-dose marker in the grid and edit form, and loaded Read Naturally's design from the chart. Applied by `db/migrations/2026-10-30-tool-design-evidence.sql`.
 
 v0.7 (2026-10-30) corrected `ncii_screening.sample_rep` to text after the first real chart export showed it is not a bubble, dropped `area.building` (the grade band implies the building), renamed tool `dibels` to DIBELS 8th Edition (the district does not use Acadience), and loaded the 36 DIBELS 8 screening rows from the chart. Applied by `db/migrations/2026-10-30-dibels8-building.sql`.
+
+v0.16 (2026-11-01) added `instructor.left_on`. The question was what to do with `m5-putnam-t1` when Putnam retires: nothing. An observed row is a dated record of one named person's practice (`as_of`, `evidence`), not a slot for "the grade 5 math teacher", and `protocol.teacher` and `deliverer_id` reference the person, so the row and the instructor row both stay. The replacement is a new instructor with their own rows (the UNIQUE key is area × tier × profile × teacher). `left_on` only marks the person as gone: the area page lists current teachers first and dims the departed, and the instructors list shows when they left. Applied by `db/migrations/2026-11-01-instructor-left-on.sql`.
 
 ## Known gaps
 

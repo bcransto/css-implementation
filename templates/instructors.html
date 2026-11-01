@@ -12,8 +12,8 @@
   <thead><tr><th>Name</th><th>Role</th><th>Teaches</th><th>FLEX</th><th>Interviewed</th><th>Observed in</th><th>Trained in</th></tr></thead>
   <tbody>
   {% for i in instructors %}
-  <tr>
-    <td><a href="{{ url_for('instructor', instructor_id=i.id) }}">{{ i.name }}</a>{% if i.full_name %} <span class="muted">{{ i.full_name }}</span>{% endif %}</td>
+  <tr{% if i.left_on %} class="departed"{% endif %}>
+    <td><a href="{{ url_for('instructor', instructor_id=i.id) }}">{{ i.name }}</a>{% if i.full_name %} <span class="muted">{{ i.full_name }}</span>{% endif %}{% if i.left_on %} <span class="pill">left {{ i.left_on }}</span>{% endif %}</td>
     <td>{{ i.role or '' }}</td>
     <td>{{ i.subjects or '' }}{% if i.grade_lo is not none %} {{ i.grade_lo|grade_span(i.grade_hi) }}{% endif %}</td>
     <td>{% if i.flex_duty == 1 %}yes{% elif i.flex_duty == 0 %}no{% else %}<span class="muted">—</span>{% endif %}</td>
