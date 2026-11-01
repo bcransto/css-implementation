@@ -19,8 +19,10 @@
     <tbody>
     {% for r in rows + [{}, {}] %}
     <tr>
-      <td><select name="s_tool"><option value="">—</option>
+      <td><select name="s_tool" class="s-tool"><option value="">—</option>
         {% for t in tools %}<option value="{{ t.id }}" {% if r.tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select>
+        <select name="s_measure" class="measure"><option value="-">whole tool</option>
+          {% for m in measures %}<option value="{{ m.measure }}" data-tool="{{ m.tool_id }}" {% if r.tool_id == m.tool_id and r.measure == m.measure %}selected{% endif %}>{{ m.measure }}</option>{% endfor %}</select>
         <input name="s_new" class="newtool" value="{{ r.new_name or '' }}" placeholder="or a new tool's name"></td>
       <td><span class="pair">
         <select name="s_lo">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_lo if r.grade_lo is not none else area.grade_lo) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
@@ -42,4 +44,21 @@
 </div>
 </form>
 <datalist id="windows-list">{% for w in windows_values %}<option value="{{ w }}">{% endfor %}</datalist>
+<script>
+(function () {
+  function applyMeasures(cell) {
+    var tool = cell.querySelector('.s-tool').value, sel = cell.querySelector('.measure'), any = false;
+    Array.prototype.forEach.call(sel.options, function (o) {
+      var ok = !o.dataset.tool || o.dataset.tool === tool;
+      o.hidden = !ok; o.disabled = !ok; if (o.dataset.tool && ok) { any = true; }
+    });
+    if (sel.options[sel.selectedIndex].disabled) { sel.value = '-'; }
+    sel.style.display = any ? '' : 'none';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('td:has(.s-tool)'), function (cell) {
+    cell.querySelector('.s-tool').addEventListener('change', function () { applyMeasures(cell); });
+    applyMeasures(cell);
+  });
+})();
+</script>
 {% endblock %}

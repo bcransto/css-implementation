@@ -179,3 +179,9 @@ form.edit[data-tier="1"] .t2 { display: none; }
 form.edit:not([data-tier="1"]) .t1 { display: none; }
 form.edit input.newtool { margin-top: 4px; font-size: 12px; width: 100%; }
 form.edit fieldset.rows #entry-slot label { margin-top: 10px; }
+/* v0.17: screener measure and skills, flagged-students block */
+table.mini.screen .measure { color: var(--muted); font-size: 13px; margin-left: 4px; }
+table.mini.screen td.skills { font-size: 12.5px; color: var(--ink-soft, #444); line-height: 1.35; }
+table.grid td.nest.flagged .line + .line { border-top: 1px solid var(--line); }
+table.grid th.field small { display: block; font-weight: normal; font-size: 11px; color: var(--muted); }
+form.edit select.measure { margin-top: 4px; font-size: 12px; width: 100%; }

@@ -68,6 +68,8 @@ FIELDS = [
     ("pm_rule", "PM rule"),
     ("review_rule", "Review"),
     ("exit_rule", "Exit rule"),
+    ("support", "Tier 1 supports"),        # Tier 1 only: the flagged-students block
+    ("clear_rule", "Flag removed when"),   # Tier 1 only
     ("next_step", "On response"),
     ("nonresponse", "On non-response"),
     ("citations", "Citations"),
@@ -80,7 +82,7 @@ TOOL_COLS = [("placement_tool_id", "Placement test"), ("program_id", "Program"),
 EDIT_COLS = [
     "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role", "deliverer_id", "instruction",
     "placement_tool_id", "program_id", "pm_tool_id", "pm_metric", "entry_rule",
-    "dosage", "group_size", "weeks", "pm_rule", "review_rule", "exit_rule",
+    "dosage", "group_size", "weeks", "pm_rule", "review_rule", "exit_rule", "support", "clear_rule",
     "next_step_id", "nonresponse_id", "status", "status_note", "citations",
 ]
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -231,7 +233,7 @@ SELECT p.id, p.tier, p.teacher, i.name AS teacher_name, p.basis, p.as_of, p.evid
        pgp.minutes AS design_minutes, pgp.min_per_week AS design_per_week, pgp.max_group AS design_max_group,
        pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
        p.pm_metric, p.entry_rule, p.deliverer_role, p.instruction, p.dosage, p.group_size, p.weeks,
-       p.pm_rule, p.review_rule, p.exit_rule,
+       p.pm_rule, p.review_rule, p.exit_rule, p.support, p.clear_rule,
        nx.kind AS next_kind, nx.tier AS next_tier, nx.description AS next_desc,
        nr.kind AS nr_kind,   nr.tier AS nr_tier,   nr.description AS nr_desc,
        p.status, p.status_note, p.citations
@@ -301,6 +303,17 @@ def cell(row, col):
     return {"text": row[col], "note": None}
 
 
+def screened_skills(con, tool_id, measure):
+    """NCII's "What skills does the tool screen?" ticks for one tool × measure, as ['Passage: Accuracy, Speed', ...]."""
+    groups = OrderedDict()
+    for r in con.execute(
+            """SELECT d.grp, d.name FROM tool_dimension td JOIN dimension d ON d.id = td.dimension_id
+               WHERE d.chart = 'screening' AND td.tool_id = ? AND td.measure = ? ORDER BY d.sort""",
+            (tool_id, measure)):
+        groups.setdefault(r["grp"] or "", []).append(r["name"])
+    return [f"{g}: {', '.join(names)}" if g else ", ".join(names) for g, names in groups.items()]
+
+
 def group_protocols(rows):
     """-> OrderedDict teacher -> OrderedDict tier -> [column dicts]"""
     by_teacher = OrderedDict()
@@ -363,17 +376,20 @@ def area(area_id):
     # screening rows by teacher: '-' is the area's rule, a person is what that teacher screens with
     screeners = {}
     for s in con.execute(
-            """SELECT s.teacher, t.id AS tool_id, t.name, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
+            """SELECT s.teacher, t.id AS tool_id, t.name, s.measure, s.grade_lo, s.grade_hi, s.windows, s.role, s.cut, s.status
                FROM area_screener s JOIN tool t ON t.id = s.tool_id
                WHERE s.area_id = ?
-               ORDER BY CASE s.role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, s.grade_lo, t.name""",
+               ORDER BY CASE s.role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, s.grade_lo, t.name, s.measure""",
             (area_id,)):
         screeners.setdefault(s["teacher"], []).append(dict(s))
-    for s in (x for rows in screeners.values() for x in rows):  # NCII screening-chart rows at this screener's grades (Q11)
+    for s in (x for rows in screeners.values() for x in rows):
+        # NCII screening-chart rows at this screener's grades (Q11), for the named measure when there is one
         s["ncii"] = con.execute(
             """SELECT measure, grade, ca_fall, ca_winter, ca_spring, ca_fall_d, ca_winter_d, ca_spring_d
-               FROM ncii_screening WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade""",
-            (s["tool_id"], s["grade_lo"], s["grade_hi"])).fetchall()
+               FROM ncii_screening WHERE tool_id = ? AND grade BETWEEN ? AND ? AND (? = '-' OR measure = ?)
+               ORDER BY measure, grade""",
+            (s["tool_id"], s["grade_lo"], s["grade_hi"], s["measure"], s["measure"])).fetchall()
+        s["skills"] = screened_skills(con, s["tool_id"], s["measure"])
     rows = con.execute(Q5_ALL_TEACHERS, (area_id,)).fetchall()
     # NCII progress-monitoring rows for each PM tool the protocols use, at this area's grades (Q12)
     pm_ncii = {}
@@ -498,6 +514,7 @@ def form_choices(con, area_id):
         "bases": BASES,
         "screen_roles": SCREEN_ROLES,
         "screen_statuses": SCREEN_STATUSES,
+        "measures": con.execute("SELECT tool_id, measure FROM measure ORDER BY tool_id, measure").fetchall(),
         "windows_values": [r[0] for r in con.execute(
             "SELECT DISTINCT windows FROM area_screener WHERE windows IS NOT NULL ORDER BY windows")],
     }
@@ -878,7 +895,8 @@ def read_screening_form():
         except ValueError:
             errs.append(f"Screening row {i + 1}: both grades are required.")
             lo = hi = None
-        rows.append({"tool_id": tid or None, "new_name": new or None, "grade_lo": lo, "grade_hi": hi,
+        rows.append({"tool_id": tid or None, "new_name": new or None, "measure": pick("s_measure", i) or "-",
+                     "grade_lo": lo, "grade_hi": hi,
                      "windows": pick("s_windows", i) or None, "role": pick("s_role", i) or "screen",
                      "cut": pick("s_cut", i) or None, "status": pick("s_status", i) or "unwritten"})
     return rows, errs
@@ -891,15 +909,18 @@ def screening_errors(con, rows, errs):
             errs.append(f"Screening row {i}: tool '{r['tool_id']}' does not exist.")
         if r["new_name"] and con.execute("SELECT 1 FROM tool WHERE lower(name) = lower(?)", (r["new_name"],)).fetchone():
             errs.append(f"Screening row {i}: a tool named '{r['new_name']}' already exists; pick it from the list.")
+        if r["measure"] != "-" and (not r["tool_id"] or not con.execute(
+                "SELECT 1 FROM measure WHERE tool_id = ? AND measure = ?", (r["tool_id"], r["measure"])).fetchone()):
+            errs.append(f"Screening row {i}: '{r['measure']}' is not a measure of that tool.")
         if r["grade_lo"] is not None and r["grade_lo"] > r["grade_hi"]:
             errs.append(f"Screening row {i}: the grade range is backwards.")
         if r["role"] not in SCREEN_ROLES:
             errs.append(f"Screening row {i}: role must be one of {', '.join(SCREEN_ROLES)}.")
         if r["status"] not in SCREEN_STATUSES:
             errs.append(f"Screening row {i}: status must be one of {', '.join(SCREEN_STATUSES)}.")
-        key = ((r["tool_id"] or r["new_name"] or "").lower(), r["grade_lo"], r["role"])
+        key = ((r["tool_id"] or r["new_name"] or "").lower(), r["measure"], r["grade_lo"], r["role"])
         if key in seen:
-            errs.append(f"Screening row {i}: same tool, starting grade and role as an earlier row.")
+            errs.append(f"Screening row {i}: same tool, measure, starting grade and role as an earlier row.")
         seen.add(key)
     return errs
 
@@ -911,9 +932,9 @@ def slug(name):
 
 def load_screening(con, area_id, teacher):
     return [dict(r) for r in con.execute(
-        """SELECT tool_id, grade_lo, grade_hi, windows, role, cut, status FROM area_screener
+        """SELECT tool_id, measure, grade_lo, grade_hi, windows, role, cut, status FROM area_screener
            WHERE area_id = ? AND teacher = ?
-           ORDER BY CASE role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, grade_lo, tool_id""",
+           ORDER BY CASE role WHEN 'screen' THEN 0 WHEN 'level_check' THEN 1 ELSE 2 END, grade_lo, tool_id, measure""",
         (area_id, teacher))]
 
 
@@ -930,16 +951,17 @@ def save_screening(con, area_id, teacher, rows):
             r["tool_id"] = tid
     con.execute("DELETE FROM area_screener WHERE area_id = ? AND teacher = ?", (area_id, teacher))
     con.executemany(
-        """INSERT INTO area_screener (area_id, teacher, tool_id, grade_lo, grade_hi, windows, role, cut, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        [(area_id, teacher, r["tool_id"], r["grade_lo"], r["grade_hi"], r["windows"], r["role"], r["cut"], r["status"])
-         for r in rows])
+        """INSERT INTO area_screener (area_id, teacher, tool_id, measure, grade_lo, grade_hi, windows, role, cut, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(area_id, teacher, r["tool_id"], r.get("measure") or "-", r["grade_lo"], r["grade_hi"], r["windows"], r["role"],
+          r["cut"], r["status"]) for r in rows])
 
 
 def render_screening_form(con, a, who, rows, errors=()):
     return render_template(
         "screening_edit.html", area=a, who=who, rows=rows, errors=errors, roles=SCREEN_ROLES, statuses=SCREEN_STATUSES,
         tools=con.execute("SELECT id, name FROM tool ORDER BY name").fetchall(), all_areas=all_areas(con),
+        measures=con.execute("SELECT tool_id, measure FROM measure ORDER BY tool_id, measure").fetchall(),
         windows_values=[r[0] for r in con.execute(
             "SELECT DISTINCT windows FROM area_screener WHERE windows IS NOT NULL ORDER BY windows")])
 

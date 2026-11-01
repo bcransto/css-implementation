@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.16
+-- MTSS tier-definition schema, v0.17
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -32,6 +32,9 @@
 -- v0.16: instructor.left_on. A departed teacher keeps their row and their observed rows (dated history);
 --   left_on marks them gone so the area page lists current teachers first and a replacement gets new rows.
 PRAGMA foreign_keys = ON;
+-- v0.17: area_screener.measure ('-' = the whole tool) so a DIBELS row can name Oral Reading Fluency or Maze and the
+--   page can show NCII's "What skills does the tool screen?" for it; protocol.support and protocol.clear_rule, the
+--   two lines of the Tier 1 "flagged students" block that had no column.
 
 CREATE TABLE area (
   id          TEXT PRIMARY KEY,           -- 'math-6', 'reading-k2'
@@ -255,14 +258,22 @@ CREATE TABLE area_screener (
   area_id     TEXT NOT NULL REFERENCES area(id),
   teacher     TEXT NOT NULL DEFAULT '-' REFERENCES instructor(id),  -- '-' = the area's rule; else that teacher's practice
   tool_id     TEXT NOT NULL REFERENCES tool(id),
+  measure     TEXT NOT NULL DEFAULT '-',  -- the instrument ('Oral Reading Fluency'); '-' = the tool as a whole (v0.17)
   grade_lo    INTEGER NOT NULL,
   grade_hi    INTEGER NOT NULL,
   windows     TEXT,                       -- 'Sep,Jan,May' | 'prior spring' | 'on request'
   role        TEXT NOT NULL CHECK (role IN ('screen','level_check','on_request')),
   cut         TEXT,                       -- 'PR < 25', 'below benchmark'
   status      TEXT NOT NULL CHECK (status IN ('doc','unwritten','proposed')),
-  PRIMARY KEY (area_id, teacher, tool_id, grade_lo, role)
+  PRIMARY KEY (area_id, teacher, tool_id, measure, grade_lo, role)
 );
+-- a screener row that names a measure must name one the vendor described (same rule as tool_dimension)
+CREATE TRIGGER area_screener_measure BEFORE INSERT ON area_screener
+BEGIN
+  SELECT RAISE(ABORT, 'area_screener.measure must be ''-'' or a measure row for this tool')
+  WHERE NEW.measure <> '-'
+    AND NOT EXISTS (SELECT 1 FROM measure m WHERE m.tool_id = NEW.tool_id AND m.measure = NEW.measure);
+END;
 
 -- the people. Ids are slugs, normally the last name; a second Smith gets 'smith-j'. '-' = nobody (the area's rule).
 CREATE TABLE instructor (
@@ -340,7 +351,9 @@ CREATE TABLE protocol (
   weeks       TEXT,
   pm_rule     TEXT,                       -- frequency, aimline, decision rule, in one textarea
   review_rule TEXT,
-  exit_rule   TEXT,
+  exit_rule   TEXT,                       -- Tier 1: when a flagged student enters Tier 2; Tier 2+: when the student leaves
+  support     TEXT,                       -- Tier 1: what a flagged student gets while still in Tier 1 (v0.17)
+  clear_rule  TEXT,                       -- Tier 1: what removes the flag (v0.17)
   next_step_id   TEXT REFERENCES route(id),
   nonresponse_id TEXT REFERENCES route(id),
   status      TEXT NOT NULL CHECK (status IN ('doc','unwritten','proposed','iep')),
@@ -366,7 +379,7 @@ CREATE TABLE student_example (
 
 -- sentinels: whole-class rows use profile '-', the area's own rows use instructor '-'
 INSERT INTO area VALUES ('-', '-', 0, 0, 0);
-INSERT INTO instructor VALUES ('-', '-', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO instructor (id, name) VALUES ('-', '-');  -- the sentinel: nobody, the area's own rule
 INSERT INTO profile VALUES ('-', '-', '-', 'defined', '(all)', 'whole class');
 
 -- NCII's academic dimension list (tool detail pages). NCII's page misspells "Writting"; corrected here.

@@ -87,6 +87,7 @@ SELECT s.tool_id, t.name, n.measure, n.grade, n.ca_fall, n.ca_winter, n.ca_sprin
 FROM area_screener s
 JOIN tool t ON t.id = s.tool_id
 LEFT JOIN ncii_screening n ON n.tool_id = s.tool_id AND n.grade BETWEEN s.grade_lo AND s.grade_hi
+                          AND (s.measure = '-' OR n.measure = s.measure)
 WHERE s.area_id = :area
 ORDER BY t.name, n.measure, n.grade;
 

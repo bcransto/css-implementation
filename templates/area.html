@@ -61,12 +61,13 @@
       <td class="status-{{ st }} nest">
         {% if scr %}
         <table class="mini screen">
-          <thead><tr><th>Tool</th><th>Rule</th><th>When</th><th>Grades</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
+          <thead><tr><th>Tool</th><th title="NCII's screening-chart checklist for this instrument; blank for a global benchmark like MCAS">What skills does the tool screen?</th><th>When</th><th>Flag rule</th><th></th><th title="NCII academic screening chart: classification accuracy fall / winter / spring at these grades">NCII</th></tr></thead>
           <tbody>{% for s in scr %}
-          <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a>{% if s.role != 'screen' %} <span class="muted">({{ s.role.replace('_', ' ') }})</span>{% endif %}</td>
-              <td>{% if s.cut %}{{ s.cut }}{% else %}<span class="empty">—</span>{% endif %}</td>
+          <tr><td><a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.name }}</a>{% if s.measure != '-' %} <span class="measure">{{ s.measure }}</span>{% endif %}
+                <div class="muted small">{{ s.grade_lo|grade_span(s.grade_hi) }}{% if s.role != 'screen' %} · {{ s.role.replace('_', ' ') }}{% endif %}</div></td>
+              <td class="skills">{% if s.skills %}{% for k in s.skills %}<div>{{ k }}</div>{% endfor %}{% else %}<span class="empty">—</span>{% endif %}</td>
               <td>{% if s.windows %}{{ s.windows }}{% else %}<span class="empty">—</span>{% endif %}</td>
-              <td class="muted">{{ s.grade_lo|grade_span(s.grade_hi) }}</td>
+              <td>{% if s.cut %}{{ s.cut }}{% else %}<span class="empty">—</span>{% endif %}</td>
               <td><span class="tag {{ s.status }}">{{ s.status }}</span></td>
               <td class="ncii-cell">{% if s.ncii|length == 1 %}{% set n = s.ncii[0] %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}" title="{{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}">{{ bubble(n.ca_fall, n.ca_fall_d) }}{{ bubble(n.ca_winter, n.ca_winter_d) }}{{ bubble(n.ca_spring, n.ca_spring_d) }}</a>
                   {% elif s.ncii %}<a href="{{ url_for('tool', tool_id=s.tool_id) }}">{{ s.ncii|length }} rows</a>
@@ -78,20 +79,26 @@
           <div class="line"><span class="lbl">Tool</span> {{ value(col.cells.placement) }}</div>
         {% endif %}
         {% if col and col.cells.entry_rule.text %}
-          <div class="line"><span class="lbl">Entry rule</span> {{ col.cells.entry_rule.text }}</div>
+          <div class="line"><span class="lbl">Note</span> {{ col.cells.entry_rule.text }}</div>
         {% elif not scr and not (col and col.cells.placement.text) %}
           <div class="line"><span class="empty">—</span></div>
         {% endif %}
       </td>
     </tr>
     <tr>
-      <th class="field">Progress monitoring</th>
-      <td class="status-{{ st }}">
-        {% if col and (col.cells.pm_tool.text or col.cells.pm_metric.text or col.cells.pm_rule.text or col.cells.review_rule.text) %}
-          <div>{{ value(col.cells.pm_tool) }}{% if col.cells.pm_metric.text %} <span class="muted">· {{ col.cells.pm_metric.text }}</span>{% endif %} {{ pm_sub(col.cells.pm_tool) }}</div>
-          {% if col.cells.pm_rule.text %}<div class="sub">{{ col.cells.pm_rule.text }}</div>{% endif %}
-          {% if col.cells.review_rule.text %}<div class="sub"><span class="lbl">Review</span> {{ col.cells.review_rule.text }}</div>{% endif %}
-        {% else %}<span class="empty">—</span>{% endif %}
+      <th class="field">Flagged students <small>still in Tier 1</small></th>
+      <td class="status-{{ st }} nest flagged">
+        {% if col and (col.cells.pm_tool.text or col.cells.pm_metric.text or col.cells.pm_rule.text or col.cells.review_rule.text
+                       or col.cells.support.text or col.cells.clear_rule.text or col.cells.exit_rule.text) %}
+          <div class="line"><span class="lbl">Further screening</span>
+            {% if col.cells.pm_tool.text %}{{ value(col.cells.pm_tool) }}{% if col.cells.pm_metric.text %} <span class="muted">· {{ col.cells.pm_metric.text }}</span>{% endif %} {{ pm_sub(col.cells.pm_tool) }}{% endif %}
+            {% if col.cells.pm_rule.text %}<div class="sub">{{ col.cells.pm_rule.text }}</div>{% endif %}
+            {% if col.cells.review_rule.text %}<div class="sub"><span class="lbl">Review</span> {{ col.cells.review_rule.text }}</div>{% endif %}
+            {% if not (col.cells.pm_tool.text or col.cells.pm_rule.text or col.cells.review_rule.text) %}<span class="empty">—</span>{% endif %}</div>
+          <div class="line"><span class="lbl">Tier 1 supports</span> {% if col.cells.support.text %}{{ col.cells.support.text }}{% else %}<span class="empty">—</span>{% endif %}</div>
+          <div class="line"><span class="lbl">Flag removed when</span> {% if col.cells.clear_rule.text %}{{ col.cells.clear_rule.text }}{% else %}<span class="empty">—</span>{% endif %}</div>
+          <div class="line"><span class="lbl">Tier 2 entry when</span> {% if col.cells.exit_rule.text %}{{ col.cells.exit_rule.text }}{% else %}<span class="empty">—</span>{% endif %}</div>
+        {% else %}<div class="line"><span class="empty">—</span></div>{% endif %}
       </td>
     </tr>
     {% if col and col.cells.citations.text %}
@@ -121,7 +128,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for col, label in fields %}
+      {% for col, label in fields if col not in ('support', 'clear_rule') %}
       <tr>
         <th class="field">{{ label }}</th>
         {% for c in cols %}{% set v = c.cells[col] %}

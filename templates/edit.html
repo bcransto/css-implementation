@@ -39,8 +39,8 @@
 
 <fieldset id="core-fs">
   <legend><span class="t1">Core</span><span class="t2">What the tier does</span></legend>
-  <label class="wide" id="entry-label">Intervention entry rule <textarea name="entry_rule" rows="3">{{ vals.entry_rule or '' }}</textarea>
-    <small><span class="t1">what flags a student for the second stage, in words; the screening rows above are the tools</span><span class="t2">what the second stage must show to enter this tier</span></small></label>
+  <label class="wide" id="entry-label"><span class="t1">Screening note</span><span class="t2">Intervention entry rule</span> <textarea name="entry_rule" rows="3">{{ vals.entry_rule or '' }}</textarea>
+    <small><span class="t1">what the table above cannot say: "Not Meeting on MCAS → straight to Tier 2, no flag stage"</span><span class="t2">what the second stage must show to enter this tier</span></small></label>
   <label class="t2">Placement test
     <select name="placement_tool_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.placement_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
@@ -66,8 +66,10 @@
     <tbody>
     {% for r in screening + [{}, {}] %}
     <tr>
-      <td><select name="s_tool"><option value="">—</option>
+      <td><select name="s_tool" class="s-tool"><option value="">—</option>
           {% for t in tools %}<option value="{{ t.id }}" {% if r.tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select>
+        <select name="s_measure" class="measure"><option value="-">whole tool</option>
+          {% for m in measures %}<option value="{{ m.measure }}" data-tool="{{ m.tool_id }}" {% if r.tool_id == m.tool_id and r.measure == m.measure %}selected{% endif %}>{{ m.measure }}</option>{% endfor %}</select>
         <input name="s_new" class="newtool" value="{{ r.new_name or '' }}" placeholder="or a new tool's name"></td>
       <td><span class="pair">
         <select name="s_lo">{% for g in range(0, 9) %}<option value="{{ g }}" {% if (r.grade_lo if r.grade_lo is not none else area.grade_lo) == g %}selected{% endif %}>{{ g|grade_span(g) }}</option>{% endfor %}</select>
@@ -81,21 +83,27 @@
     </tbody>
   </table></div>
   <small class="muted">One row per screening tool, as on the page: pick a tool or type a new one's name (it is created on save, name only).
+    The measure box lists the tool's instruments (DIBELS: Oral Reading Fluency, Maze); leave it at <em>whole tool</em> for MCAS and the like.
     Rows without a tool are ignored; clear the tool to remove one. <em>When</em> is the window text; <em>Flag rule</em> is the cut, or the words the teacher uses.
     These rows belong to the teacher chosen above, not to this row alone.</small>
   <div id="entry-slot"></div>
 </fieldset>
 
 <fieldset>
-  <legend><span class="t1">Progress monitoring</span><span class="t2">How it is measured and reviewed</span></legend>
-  <label>PM tool
+  <legend><span class="t1">Flagged students (still in Tier 1)</span><span class="t2">How it is measured and reviewed</span></legend>
+  <label><span class="t1">Further screening tool</span><span class="t2">PM tool</span>
     <select name="pm_tool_id"><option value="">—</option>
       {% for t in tools %}<option value="{{ t.id }}" {% if vals.pm_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
-  <label>PM metric <input name="pm_metric" value="{{ vals.pm_metric or '' }}" placeholder="accuracy %"><small>which number from the tool</small></label>
-  <label class="wide">PM rule <textarea name="pm_rule" rows="3">{{ vals.pm_rule or '' }}</textarea>
-    <small>frequency, aimline, decision rule</small></label>
+  <label><span class="t1">Metric</span><span class="t2">PM metric</span> <input name="pm_metric" value="{{ vals.pm_metric or '' }}" placeholder="accuracy %"><small>which number from the tool</small></label>
+  <label class="wide"><span class="t1">Further screening</span><span class="t2">PM rule</span> <textarea name="pm_rule" rows="3">{{ vals.pm_rule or '' }}</textarea>
+    <small><span class="t1">probes and diagnostics a flagged student gets: how often, for how long, what sorts them</span><span class="t2">frequency, aimline, decision rule</span></small></label>
+  <label class="wide t1">Tier 1 supports <textarea name="support" rows="2">{{ vals.support or '' }}</textarea>
+    <small>what a flagged student gets while still in Tier 1: "extra small-group reread, 3 × 20 inside the block"</small></label>
+  <label class="wide t1">Flag removed when <textarea name="clear_rule" rows="2">{{ vals.clear_rule or '' }}</textarea>
+    <small>"two consecutive probes at or above benchmark"</small></label>
+  <label class="wide"><span class="t1">Tier 2 entry when</span><span class="t2">Exit rule</span> <textarea name="exit_rule" rows="3">{{ vals.exit_rule or '' }}</textarea>
+    <small class="t1">"slope below the aimline after six weeks → Tier 2 by profile"</small></label>
   <label class="wide">Review <textarea name="review_rule" rows="2">{{ vals.review_rule or '' }}</textarea></label>
-  <label class="wide t2">Exit rule <textarea name="exit_rule" rows="3">{{ vals.exit_rule or '' }}</textarea></label>
 </fieldset>
 
 <fieldset class="t2">
@@ -145,6 +153,19 @@
     });
     if (profile.selectedIndex >= 0 && profile.options[profile.selectedIndex].disabled) { profile.value = '-'; }
   }
+  function applyMeasures(cell) {
+    var tool = cell.querySelector('.s-tool').value, sel = cell.querySelector('.measure'), any = false;
+    Array.prototype.forEach.call(sel.options, function (o) {
+      var ok = !o.dataset.tool || o.dataset.tool === tool;
+      o.hidden = !ok; o.disabled = !ok; if (o.dataset.tool && ok) { any = true; }
+    });
+    if (sel.options[sel.selectedIndex].disabled) { sel.value = '-'; }
+    sel.style.display = any ? '' : 'none';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#screening-fs td:has(.s-tool)'), function (cell) {
+    cell.querySelector('.s-tool').addEventListener('change', function () { applyMeasures(cell); });
+    applyMeasures(cell);
+  });
   tier.addEventListener('change', applyTier);
   teacher.addEventListener('change', applyTeacher);
   applyTier(); applyTeacher();
