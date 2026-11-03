@@ -128,7 +128,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for col, label in fields if col not in ('support', 'clear_rule') %}
+      {% for col, label in fields if tier == 1 or col not in ('support', 'clear_rule') %}
       <tr>
         <th class="field">{{ label }}</th>
         {% for c in cols %}{% set v = c.cells[col] %}
