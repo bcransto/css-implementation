@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Tools · CSS tiers{% endblock %}
+{% block nav %}
+  {% for a in all_areas %}<a href="{{ url_for('area', area_id=a.id) }}">{{ a.subject }} {{ a.grade_lo|grade_span(a.grade_hi) }}</a>{% endfor %}
+{% endblock %}
+{% block body %}
+<h1>Tools</h1>
+<p class="lede">Every program, screener and progress-monitoring tool named anywhere in the tiers. "Licensed" is the grades the district owns it for."NCII" is which of NCII's tools charts list it.</p>
+
+<table class="list">
+  <thead><tr><th>Name</th><th>Vendor</th><th>Designed for</th><th>Licensed</th><th>Used in</th><th>Measures</th><th>NCII</th></tr></thead>
+  <tbody>
+  {% for t in tools %}
+  <tr>
+    <td><a href="{{ url_for('tool', tool_id=t.id) }}">{{ t.name }}</a></td>
+    <td>{{ t.vendor or '' }}</td>
+    <td>{% if t.grade_lo is not none %}{{ t.grade_lo|grade_span(t.grade_hi) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{% if t.licensed %}{{ t.licensed }}{% else %}<span class="muted">not owned</span>{% endif %}</td>
+    <td>{% for aid in (t.areas or '').split(',') if aid %}<a href="{{ url_for('area', area_id=aid) }}">{{ aid }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">—</span>{% endfor %}</td>
+    <td>{% if t.measures %}{{ t.measures }}{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{% set charts = [] %}{% if t.ncii_screening %}{% set _ = charts.append('screening') %}{% endif %}{% if t.ncii_pm %}{% set _ = charts.append('PM') %}{% endif %}{% if t.ncii_intervention %}{% set _ = charts.append('intervention') %}{% endif %}{% if charts %}{{ charts|join(', ') }}{% else %}<span class="muted">not listed</span>{% endif %}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="muted">No tools yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

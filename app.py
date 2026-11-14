@@ -424,6 +424,30 @@ def area(area_id):
     )
 
 
+TOOL_LIST = """
+SELECT t.id, t.name, t.vendor, tp.grade_lo, tp.grade_hi,
+       (SELECT group_concat(grade_span(l.grade_lo, l.grade_hi), ', ')
+          FROM (SELECT * FROM tool_license WHERE tool_id = t.id ORDER BY grade_lo) l) AS licensed,
+       (SELECT group_concat(area_id) FROM (
+            SELECT area_id FROM area_core WHERE tool_id = t.id
+            UNION SELECT area_id FROM area_screener WHERE tool_id = t.id
+            UNION SELECT area_id FROM protocol WHERE t.id IN (placement_tool_id, program_id, pm_tool_id)
+            ORDER BY 1)) AS areas,
+       (SELECT count(*) FROM measure m WHERE m.tool_id = t.id) AS measures,
+       EXISTS (SELECT 1 FROM ncii_screening n WHERE n.tool_id = t.id) AS ncii_screening,
+       EXISTS (SELECT 1 FROM ncii_pm n WHERE n.tool_id = t.id) AS ncii_pm,
+       EXISTS (SELECT 1 FROM ncii_intervention n WHERE n.tool_id = t.id) AS ncii_intervention
+FROM tool t LEFT JOIN tool_profile tp ON tp.tool_id = t.id
+ORDER BY t.name COLLATE NOCASE
+"""
+
+
+@app.route("/tools")
+def tools():
+    con = db()
+    return render_template("tools.html", tools=con.execute(TOOL_LIST).fetchall(), all_areas=all_areas(con))
+
+
 @app.route("/tool/<tool_id>")
 def tool(tool_id):
     con = db()

@@ -5,7 +5,7 @@
 {% endblock %}
 {% block body %}
 <h1>{{ tool.name }}
-  <small>{{ tool.vendor or '' }}{% if profile and profile.minutes %} · {{ profile.minutes }} min{% endif %} · <code>{{ tool.id }}</code></small></h1>
+  <small>{{ tool.vendor or '' }}{% if profile and profile.minutes %} · {{ profile.minutes }} min{% endif %} · <a href="{{ url_for('tools') }}">all tools</a> · <code>{{ tool.id }}</code></small></h1>
 {% if tool.notes %}<p class="lede">{{ tool.notes }}{% if tool.url %} <a href="{{ tool.url }}">{{ tool.url }}</a>{% endif %}</p>
 {% elif tool.url %}<p class="lede"><a href="{{ tool.url }}">{{ tool.url }}</a></p>{% endif %}
 
