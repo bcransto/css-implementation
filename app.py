@@ -81,7 +81,7 @@ TOOL_COLS = [("placement_tool_id", "Placement test"), ("program_id", "Program"),
 # every editable column of protocol except id and area_id
 EDIT_COLS = [
     "tier", "profile_id", "teacher", "basis", "as_of", "evidence", "deliverer_role", "deliverer_id", "instruction",
-    "placement_tool_id", "program_id", "pm_tool_id", "pm_metric", "entry_rule",
+    "placement_tool_id", "program_id", "pm_tool_id", "pm_measure", "pm_metric", "entry_rule",
     "dosage", "group_size", "weeks", "pm_rule", "review_rule", "exit_rule", "support", "clear_rule",
     "next_step_id", "nonresponse_id", "status", "status_note", "citations",
 ]
@@ -231,7 +231,7 @@ SELECT p.id, p.tier, p.teacher, i.name AS teacher_name, p.basis, p.as_of, p.evid
        pl.name AS placement, pl.notes AS placement_notes, p.placement_tool_id AS placement_id,
        pg.name AS program,   pg.notes AS program_notes,   p.program_id,
        pgp.minutes AS design_minutes, pgp.min_per_week AS design_per_week, pgp.max_group AS design_max_group,
-       pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id,
+       pm.name AS pm_tool,   pm.notes AS pm_tool_notes,   p.pm_tool_id AS pm_tool_id, p.pm_measure,
        p.pm_metric, p.entry_rule, p.deliverer_role, p.instruction, p.dosage, p.group_size, p.weeks,
        p.pm_rule, p.review_rule, p.exit_rule, p.support, p.clear_rule,
        nx.kind AS next_kind, nx.tier AS next_tier, nx.description AS next_desc,
@@ -299,7 +299,10 @@ def cell(row, col):
         role, who = row["deliverer_role"], row["deliverer"]
         return {"text": f"{role} — {who}" if role and who else role or who, "note": None}
     if col in ("placement", "program", "pm_tool"):
-        return {"text": row[col], "note": row[col + "_notes"], "tool_id": row[col + "_id"]}
+        c = {"text": row[col], "note": row[col + "_notes"], "tool_id": row[col + "_id"]}
+        if col == "pm_tool":  # the instrument, when the row names one ('-' = the whole tool)
+            c["measure"] = row["pm_measure"] if row["pm_measure"] != "-" else None
+        return c
     return {"text": row[col], "note": None}
 
 
@@ -391,13 +394,15 @@ def area(area_id):
             (s["tool_id"], s["grade_lo"], s["grade_hi"], s["measure"], s["measure"])).fetchall()
         s["skills"] = screened_skills(con, s["tool_id"], s["measure"])
     rows = con.execute(Q5_ALL_TEACHERS, (area_id,)).fetchall()
-    # NCII progress-monitoring rows for each PM tool the protocols use, at this area's grades (Q12)
+    # NCII progress-monitoring rows for each PM tool × measure the protocols use, at this area's grades (Q12);
+    # keyed (tool, measure or None), for the named measure when there is one
     pm_ncii = {}
-    for tid in {r["pm_tool_id"] for r in rows if r["pm_tool_id"]}:
-        pm_ncii[tid] = con.execute(
+    for tid, m in {(r["pm_tool_id"], r["pm_measure"]) for r in rows if r["pm_tool_id"]}:
+        pm_ncii[(tid, m if m != "-" else None)] = con.execute(
             """SELECT measure, grade, measure_type, slope_reliability, slope_validity, alt_forms
-               FROM ncii_pm WHERE tool_id = ? AND grade BETWEEN ? AND ? ORDER BY measure, grade, measure_type""",
-            (tid, a["grade_lo"], a["grade_hi"])).fetchall()
+               FROM ncii_pm WHERE tool_id = ? AND grade BETWEEN ? AND ? AND (? = '-' OR measure = ?)
+               ORDER BY measure, grade, measure_type""",
+            (tid, a["grade_lo"], a["grade_hi"], m, m)).fetchall()
     # NCII intervention studies for each program the protocols use (Q13; studies are not grade-bound)
     prog_ncii = {}
     for tid in {r["program_id"] for r in rows if r["program_id"]}:
@@ -535,6 +540,8 @@ def read_form():
     vals["teacher"] = vals["teacher"] or "-"
     vals["profile_id"] = vals["profile_id"] or "-"
     vals["basis"] = vals["basis"] or "defined"
+    # '-' = the PM tool as a whole; a measure means nothing without a tool
+    vals["pm_measure"] = (vals["pm_measure"] if vals["pm_tool_id"] else None) or "-"
     return vals
 
 
@@ -552,6 +559,9 @@ def hard_errors(con, vals):
         errs.append("Profile does not exist.")
     elif vals["profile_id"] != "-" and prof["teacher"] != vals["teacher"]:
         errs.append(f"Profile belongs to teacher '{prof['teacher']}' but this row is for '{vals['teacher']}'.")
+    if vals["pm_measure"] != "-" and not con.execute(
+            "SELECT 1 FROM measure WHERE tool_id = ? AND measure = ?", (vals["pm_tool_id"], vals["pm_measure"])).fetchone():
+        errs.append(f"'{vals['pm_measure']}' is not a measure of the PM tool.")
     return errs
 
 
@@ -616,7 +626,7 @@ def protocol_new(area_id):
         abort(404)
     if request.method == "GET":
         vals = {c: None for c in EDIT_COLS}
-        vals.update(teacher="-", profile_id="-", basis="defined", status="proposed")
+        vals.update(teacher="-", profile_id="-", basis="defined", status="proposed", pm_measure="-")
         return render_form(con, a, vals)
     vals = read_form()
     new_id = (request.form.get("id") or "").strip().lower()

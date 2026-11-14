@@ -91,9 +91,12 @@
 
 <fieldset>
   <legend><span class="t1">Flagged students (still in Tier 1)</span><span class="t2">How it is measured and reviewed</span></legend>
-  <label><span class="t1">Further screening tool</span><span class="t2">PM tool</span>
-    <select name="pm_tool_id"><option value="">—</option>
-      {% for t in tools %}<option value="{{ t.id }}" {% if vals.pm_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></label>
+  <label id="pm-tool-label"><span class="t1">Further screening tool</span><span class="t2">PM tool</span>
+    <select name="pm_tool_id" class="s-tool"><option value="">—</option>
+      {% for t in tools %}<option value="{{ t.id }}" {% if vals.pm_tool_id == t.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select>
+    <select name="pm_measure" class="measure"><option value="-">whole tool</option>
+      {% for m in measures %}<option value="{{ m.measure }}" data-tool="{{ m.tool_id }}" {% if vals.pm_tool_id == m.tool_id and vals.pm_measure == m.measure %}selected{% endif %}>{{ m.measure }}</option>{% endfor %}</select>
+    <small>the second box lists the tool's instruments (DIBELS: Oral Reading Fluency, Maze), when it has any</small></label>
   <label><span class="t1">Metric</span><span class="t2">PM metric</span> <input name="pm_metric" value="{{ vals.pm_metric or '' }}" placeholder="accuracy %"><small>which number from the tool</small></label>
   <label class="wide"><span class="t1">Further screening</span><span class="t2">PM rule</span> <textarea name="pm_rule" rows="3">{{ vals.pm_rule or '' }}</textarea>
     <small><span class="t1">probes and diagnostics a flagged student gets: how often, for how long, what sorts them</span><span class="t2">frequency, aimline, decision rule</span></small></label>
@@ -162,7 +165,7 @@
     if (sel.options[sel.selectedIndex].disabled) { sel.value = '-'; }
     sel.style.display = any ? '' : 'none';
   }
-  Array.prototype.forEach.call(document.querySelectorAll('#screening-fs td:has(.s-tool)'), function (cell) {
+  Array.prototype.forEach.call(document.querySelectorAll('#screening-fs td:has(.s-tool), #pm-tool-label'), function (cell) {
     cell.querySelector('.s-tool').addEventListener('change', function () { applyMeasures(cell); });
     applyMeasures(cell);
   });

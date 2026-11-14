@@ -22,9 +22,9 @@ One sheet per teacher, ELA or math. The numbered text is the script, written to 
 5. Is there anything you give only to some kids, rather than to everyone — a level check for a kid you're unsure about, a probe on request, a diagnostic a specialist runs?
 
    *[Fills: screening table, role level_check / on_request.]*
-6. After the September screen, is there any second look before a kid goes into intervention, such as a few weeks of watching, a probe or two, a quiz, before deciding the flag is real? Or does the screen alone decide?
+6. After the September screen, is there any second look before a kid goes into intervention, such as a few weeks of watching, a probe or two, a quiz, or a different, longer test given one-to-one, before deciding the flag is real? Or does the screen alone decide?
 
-   *[**Multi-gated screening**: Fuchs recommends a short monitoring stage after the initial screen to cut false positives. Fills: Tier 1 PM tool; PM rule.]*
+   *[**Multi-gated screening**, also called second-stage screening: Fuchs recommends a second look after the initial screen to cut false positives. Either works: a different, individually given test, or six to eight weeks of progress monitoring every two weeks. Note which one they describe. Fills: Tier 1 PM tool; PM measure; PM rule.]*
 7. While a kid is flagged but not yet in a group, what do they get in class: reteaching, an in-class small group, a seat change, nothing different?
 
    *[Fills: Tier 1 supports.]*
@@ -80,15 +80,15 @@ One sheet per teacher, ELA or math. The numbered text is the script, written to 
     *[Fills: status: iep; delivered by.]*
 
 ## Progress monitoring and decision rules
-22. What **progress monitoring tool** do you use to see whether it's working: a PM sheet, STAR or ALEKS progress, unit tests, a probe, gut?
+22. What **progress monitoring tool** do you use to see whether it's working: a PM sheet, STAR or ALEKS progress, unit tests, a probe, gut? If it's DIBELS or STAR, which **measure**: ORF, Maze, the scaled score?
 
-    *[Fills: PM tool.]*
-23. What number do you actually look at on it: problems correct per minute, words correct per minute, percent on the unit test, ALEKS topics mastered, a STAR scaled score, a level?
+    *[Fills: PM tool; PM measure.]*
+23. What number do you actually look at on it: problems correct per minute, words correct per minute, percent on the unit test, ALEKS topics mastered, a STAR scaled score, a level? Is that check the same kind of test at the same difficulty all year, or does it change as the unit changes? Do you chart the scores and look at the trend, or go by the latest one?
 
-    *[Fills: PM metric.]*
-24. How often do you monitor, and is there a **decision rule**, meaning a point where the data tells you to change something, like "if nothing moves in four weeks I switch"?
+    *[**General outcome measure** (same test all year, so September and March scores compare) or **mastery measure** (a new test for each skill or unit). Unit tests and ALEKS topics mastered are mastery measures. Write down which, in the PM metric. Fills: PM metric.]*
+24. How often do you monitor, and is there a **decision rule**, meaning a point where the data tells you to change something, like "if nothing moves in four weeks I switch"? When it does say change something, how do you decide what to change: a **diagnostic assessment**, a look at the kid's errors, the next thing in the program, a guess?
 
-    *[Fills: PM rule.]*
+    *[A diagnostic here means a test of which skills the kid has and lacks, given when progress stalls; not a disability diagnosis. Fills: PM rule.]*
 25. Is there a scheduled review, and does anyone else look at the data?
 
     *[Fills: review.]*
@@ -114,9 +114,9 @@ One sheet per teacher, ELA or math. The numbered text is the script, written to 
     *[Fills: on non-response.]*
 
 ## Tier 3
-32. Is there anything more intensive than the Tier 2 group — one-to-one, a specialist, a different program, more minutes — for a kid who hasn't responded? Who is in it now, how did they get there, and is it a district rule, an IEP, or something you arranged?
+32. Is there anything more intensive than the Tier 2 group — one-to-one, a specialist, a different program, more minutes — for a kid who hasn't responded? Who is in it now, how did they get there, and is it a district rule, an IEP, or something you arranged? How often is that kid's progress checked, and does the instruction get adjusted for that one kid based on it?
 
-    *[Fills: Tier 3 row; status.]*
+    *[NCII's **data-based individualization** expects weekly progress monitoring at this level. Fills: Tier 3 row; Tier 3 PM rule; status.]*
 
 ## Subject specifics
 33. *[Math teachers: the pre-algebra/proportional profile.]* Do you see the kid who's fine on arithmetic but lost on equations, and what do you do with them?
@@ -134,4 +134,4 @@ One sheet per teacher, ELA or math. The numbered text is the script, written to 
     *[Fills: status note.]*
 
 ## Where the answers land on the page
-1: area, core, the instructor row, Tier 1 instruction. 2: the instructor's training rows. 3 to 9: the screening table and the Tier 1 block (intervention entry rule, further screening, Tier 1 supports, flag removed when, Tier 2 entry when). 10 to 12: profiles, sort rule, placement tool. 13 to 21: program, instruction, delivered by, dosage, group size, Tier 2 intervention entry rule, and the row's status note. 22 to 27: PM tool, PM metric, PM rule, review, evidence, and the record-keeping note. 28 to 31: weeks, exit rule, on response, on non-response. 32: the Tier 3 row. 33 to 35: status note and handoff route.
+1: area, core, the instructor row, Tier 1 instruction. 2: the instructor's training rows. 3 to 9: the screening table and the Tier 1 block (intervention entry rule, further screening, Tier 1 supports, flag removed when, Tier 2 entry when). 10 to 12: profiles, sort rule, placement tool. 13 to 21: program, instruction, delivered by, dosage, group size, Tier 2 intervention entry rule, and the row's status note. 22 to 27: PM tool, PM measure, PM metric, PM rule, review, evidence, and the record-keeping note. 28 to 31: weeks, exit rule, on response, on non-response. 32: the Tier 3 row. 33 to 35: status note and handoff route.

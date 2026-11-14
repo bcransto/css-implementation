@@ -12,11 +12,11 @@
 
 {% macro value(v) -%}
   {% if v.warn %}<span class="warn" title="{{ v.warn }}">▲</span> {% endif -%}
-  {% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
+  {% if v.text and v.tool_id %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ v.text }}</a>{% if v.measure %} <span class="measure">{{ v.measure }}</span>{% endif %}{% elif v.text %}{{ v.text }}{% else %}<span class="empty">—</span>{% endif %}
 {%- endmacro %}
 
 {% macro pm_sub(v) -%}
-  {% if v.tool_id and pm_ncii.get(v.tool_id) %}{% set rows = pm_ncii[v.tool_id] %}
+  {% if v.tool_id and pm_ncii.get((v.tool_id, v.measure)) %}{% set rows = pm_ncii[(v.tool_id, v.measure)] %}
   <span class="ncii-sub">{% if rows|length == 1 %}{% set n = rows[0] %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}" title="NCII: {{ n.measure }}, grade {{ n.grade|grade_span(n.grade) }}, {{ n.measure_type }}: slope reliability, slope validity, alternate forms">NCII {{ bubble(n.slope_reliability) }}{{ bubble(n.slope_validity) }}{{ bubble(n.alt_forms) }}</a>
     {% else %}<a href="{{ url_for('tool', tool_id=v.tool_id) }}">{{ rows|length }} NCII rows</a>{% endif %}</span>{% endif %}
 {%- endmacro %}

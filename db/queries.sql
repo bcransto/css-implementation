@@ -34,7 +34,7 @@ SELECT id, area_id FROM protocol WHERE citations IS NULL AND status <> 'iep' AND
 
 -- Q5  The page for one area: rows by tier, one per profile.
 SELECT COALESCE(p.tier, '-') AS tier, pr.name AS profile,
-       pl.name AS placement, pg.name AS program, pm.name AS pm_tool, p.pm_metric,
+       pl.name AS placement, pg.name AS program, pm.name AS pm_tool, p.pm_measure, p.pm_metric,
        p.entry_rule, p.dosage, p.group_size, p.weeks, p.pm_rule, p.review_rule, p.exit_rule,
        nx.kind AS next_step, nr.kind AS nonresponse, p.status, p.status_note, p.citations
 FROM protocol p
@@ -93,13 +93,15 @@ ORDER BY t.name, n.measure, n.grade;
 
 -- Q12 NCII progress monitoring ratings for the PM tools an area's protocols use, at the area's grades.
 --     No ncii_pm row = the tool is not on NCII's academic progress monitoring chart.
-SELECT DISTINCT p.pm_tool_id, t.name, n.measure, n.grade, n.measure_type,
+--     A protocol that names a PM measure gets that measure's rows only; '-' gets every measure of the tool.
+SELECT DISTINCT p.pm_tool_id, t.name, p.pm_measure, n.measure, n.grade, n.measure_type,
        n.reliability, n.validity, n.slope_reliability, n.slope_validity, n.alt_forms,
        n.rules_goals, n.rules_instruction
 FROM protocol p
 JOIN area a ON a.id = p.area_id
 JOIN tool t ON t.id = p.pm_tool_id
 LEFT JOIN ncii_pm n ON n.tool_id = p.pm_tool_id AND n.grade BETWEEN a.grade_lo AND a.grade_hi
+                  AND (p.pm_measure = '-' OR n.measure = p.pm_measure)
 WHERE p.area_id = :area
 ORDER BY t.name, n.measure, n.grade, n.measure_type;
 

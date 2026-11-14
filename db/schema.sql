@@ -1,4 +1,4 @@
--- MTSS tier-definition schema, v0.17
+-- MTSS tier-definition schema, v0.18
 -- Changes from v0.1 (after simplifier + breaker review):
 --   * numeric grade bounds on area, area_screener; new tool_license replaces tool.owned
 --   * area_core link table (an area can have two cores)
@@ -35,6 +35,8 @@ PRAGMA foreign_keys = ON;
 -- v0.17: area_screener.measure ('-' = the whole tool) so a DIBELS row can name Oral Reading Fluency or Maze and the
 --   page can show NCII's "What skills does the tool screen?" for it; protocol.support and protocol.clear_rule, the
 --   two lines of the Tier 1 "flagged students" block that had no column.
+-- v0.18: protocol.pm_measure ('-' = the whole tool), the same move for the PM tool: a row can say DIBELS Maze
+--   rather than DIBELS, and the page shows NCII's PM ratings for that instrument.
 
 CREATE TABLE area (
   id          TEXT PRIMARY KEY,           -- 'math-6', 'reading-k2'
@@ -344,6 +346,7 @@ CREATE TABLE protocol (
   program_id  TEXT REFERENCES tool(id),
   instruction TEXT,                       -- what it looks like: Tier 1 the core block; Tier 2+ what a session contains
   pm_tool_id  TEXT REFERENCES tool(id),
+  pm_measure  TEXT NOT NULL DEFAULT '-',  -- the PM tool's instrument ('Maze'); '-' = the tool as a whole (v0.18)
   pm_metric   TEXT,
   entry_rule  TEXT,                       -- Tier 1: the flag rule
   dosage      TEXT,
@@ -368,6 +371,20 @@ BEGIN
   SELECT RAISE(ABORT, 'protocol.teacher must match profile.teacher (or profile = ''-'')')
   WHERE NEW.profile_id <> '-'
     AND NEW.teacher <> (SELECT teacher FROM profile WHERE id = NEW.profile_id);
+END;
+
+-- a protocol that names a PM measure must name one the vendor described for its PM tool (same rule as area_screener)
+CREATE TRIGGER protocol_pm_measure_ins BEFORE INSERT ON protocol
+BEGIN
+  SELECT RAISE(ABORT, 'protocol.pm_measure must be ''-'' or a measure row for the PM tool')
+  WHERE NEW.pm_measure <> '-'
+    AND NOT EXISTS (SELECT 1 FROM measure m WHERE m.tool_id = NEW.pm_tool_id AND m.measure = NEW.pm_measure);
+END;
+CREATE TRIGGER protocol_pm_measure_upd BEFORE UPDATE OF pm_tool_id, pm_measure ON protocol
+BEGIN
+  SELECT RAISE(ABORT, 'protocol.pm_measure must be ''-'' or a measure row for the PM tool')
+  WHERE NEW.pm_measure <> '-'
+    AND NOT EXISTS (SELECT 1 FROM measure m WHERE m.tool_id = NEW.pm_tool_id AND m.measure = NEW.pm_measure);
 END;
 
 CREATE TABLE student_example (
